@@ -1,0 +1,48 @@
+cabal.sandbox.config
+.cabal-sandbox
+.dist-buildwrapper
+/dist
+.idea
+
+
+# Disable testresults 
+/testing/Travis/testcases/**/*.proto
+
+# Temporarily disable ampersand.cabal (See issue #931)
+# NO LONGER include ampersand.cabal in .gitignore. See https://github.com/commercialhaskell/stack/issues/5210
+
+
+# stack.yaml.lock # enable versioning of stack.yaml.lock: See https://stackoverflow.com/questions/64682066/should-stack-yaml-lock-be-checked-into-source-control/64684211#64684211
+
+StaticFiles_Generated.hs
+BuildInfo_Generated.hs
+
+# Visual studio code stuff
+###################
+/.vscode
+*.code-workspace
+
+# Compiled source #
+###################
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+*.hi
+miscellaneous/AmpersandBackup.jgcscs
+miscellaneous/AmpersandBackup.jgfns
+*.log
+/.hpc
+/hpc
+.settings/org.eclipse.wst.common.project.facet.core.xml
+.settings/org.eclipse.php.core.prefs
+/.stack-work
+/.ghci
+/ghcid.txt
+
+# Editor related #
+##################
+*.epp
+~$*
