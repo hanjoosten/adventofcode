@@ -10,11 +10,20 @@ import Text.Read (Lexeme (String))
 
 
 getPuzzle :: ([String] -> String, FilePath)
-getPuzzle = from  puzzle1
+getPuzzle = from  puzzle2
    where from (a,b) = (a,show 2021 </> b) 
 
+puzzle2 :: ([String] -> String, FilePath)
+puzzle2 = (fun, "puzzle_02.txt")
+  where
+    fun rows = "Waiting for next puzzle"
+
+
+
+
+
 puzzle1 :: ([String] -> String, FilePath)
-puzzle1 = (fun, "puzzle_1.txt")
+puzzle1 = (fun, "puzzle_01.txt")
   where
     fun rows = show . length . filter id . increases . sumOf3 . map toInt $ rows
     toInt :: String -> Int
