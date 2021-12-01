@@ -4,7 +4,7 @@ import Data.List (intercalate, intersperse, nub, partition, sort)
 import Data.Maybe (isJust)
 import qualified Data.Set as Set
 import Debug.Trace (trace, traceShowId)
-import System.FilePath (dropExtension,(</>))
+import System.FilePath (dropExtension, (</>))
 import Text.Read (Lexeme (String))
 
 main :: IO ()
@@ -13,7 +13,9 @@ main = do
   printAnswer (fst puzzle content) (snd puzzle)
   where
     puzzle = from 2020 puzzle24
-      where from year (a,b) = (a,show year </> b) 
+      where
+        from year (a, b) = (a, show year </> b)
+
 data Direction = EAST | SOUTHEAST | SOUTHWEST | WEST | NORTHWEST | NORTHEAST
   deriving (Eq, Show, Bounded, Enum)
 
@@ -21,10 +23,12 @@ data TileColour = Black | White
   deriving (Eq, Show, Bounded)
 
 type Coordinate = (Int, Int)
+
 data Tile = Tile
-      { coordinaten :: Coordinate
-      , colour:: TileColour
-      }
+  { coordinaten :: Coordinate,
+    colour :: TileColour
+  }
+
 puzzle24 :: ([String] -> String, FilePath)
 puzzle24 = (fun, "puzzle_24.txt")
   where
@@ -32,10 +36,10 @@ puzzle24 = (fun, "puzzle_24.txt")
       --show. length . reduce . sort . map (show . placement . parse) $ rows
       concat $ "\n" : (intersperse "\n" . concatMap (niceShow . blackTilesAtDay) $ [0 .. 100])
       where
-        niceShow :: (Int,Set.Set Coordinate) -> [String]
-        niceShow (i,cs) = 
-          if i `elem` [1..10] ++ map (* 10) [1..10]
-            then ["Day "<>show i<>": "<>show (length cs)] 
+        niceShow :: (Int, Set.Set Coordinate) -> [String]
+        niceShow (i, cs) =
+          if i `elem` [1 .. 10] ++ map (* 10) [1 .. 10]
+            then ["Day " <> show i <> ": " <> show (length cs)]
             else mempty
         blackTilesAtDay :: Int -> (Int, Set.Set Coordinate)
         blackTilesAtDay 0 = (0, Set.fromList . reduce . sort . map (placement . parse) $ rows)
@@ -43,31 +47,36 @@ puzzle24 = (fun, "puzzle_24.txt")
     nextDayBlackTiles :: Int -> Set.Set Coordinate -> Set.Set Coordinate
     nextDayBlackTiles day blackNow = blackNext
       where
-        showIt = concatMap (\x -> "\n "++show day++"  "<>x ) $
-           ["blackNow:"<>show blackNow
-           ,"allNow: "<> (show . length $ allNow)
-           ] ++
-           showWhitesToBlack allNow
+        showIt =
+          concatMap (\x -> "\n " ++ show day ++ "  " <> x) $
+            [ "blackNow:" <> show blackNow,
+              "allNow: " <> (show . length $ allNow)
+            ]
+              ++ showWhitesToBlack allNow
         showWhitesToBlack :: Set.Set Coordinate -> [String]
         showWhitesToBlack = concatMap foo
-          where foo c = ["    "<>show c<>": Nu: "<>
-                             (if isBlackNow c then "Zwart" else "Wit")
-                          <>". Aantal zwarte buren: "<> show(nrOfBlackNeighbors c  )
-                          <>" Next: "<>if willbeBlack c then "Zwart" else "Wit" 
-                        ]
+          where
+            foo c =
+              [ "    " <> show c <> ": Nu: "
+                  <> (if isBlackNow c then "Zwart" else "Wit")
+                  <> ". Aantal zwarte buren: "
+                  <> show (nrOfBlackNeighbors c)
+                  <> " Next: "
+                  <> if willbeBlack c then "Zwart" else "Wit"
+              ]
         blackNext :: Set.Set Coordinate
         blackNext = Set.filter willbeBlack allNow
-        willbeBlack c = (isBlackNow c && nrOfBlackNeighbors c `elem` [1,2]) ||
-                     (isWhiteNow c && nrOfBlackNeighbors c == 2)
+        willbeBlack c =
+          (isBlackNow c && nrOfBlackNeighbors c `elem` [1, 2])
+            || (isWhiteNow c && nrOfBlackNeighbors c == 2)
         allNow :: Set.Set Coordinate
-        allNow = (Set.unions . map neighbors . Set.toList $ blackNow ) `Set.union` blackNow
+        allNow = (Set.unions . map neighbors . Set.toList $ blackNow) `Set.union` blackNow
         isBlackNow c = c `elem` blackNow
         isWhiteNow = not . isBlackNow
         nrOfBlackNeighbors = length . filter isBlackNow . Set.toList . neighbors
 
         neighbors :: Coordinate -> Set.Set Coordinate
         neighbors c = Set.fromList . map (plus c . vector) $ [EAST ..]
-
 
     parse :: String -> [Direction]
     parse [] = []
