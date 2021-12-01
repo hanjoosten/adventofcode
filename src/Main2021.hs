@@ -20,6 +20,7 @@ puzzle2 = (fun, "puzzle_02.txt")
 puzzle1 :: ([String] -> String, FilePath)
 puzzle1 = (fun, "puzzle_01.txt")
   where
+    -- fun rows = show . length . filter id . increases . map toInt $ rows
     fun rows = show . length . filter id . increases . sumOf3 . map toInt $ rows
     toInt :: String -> Int
     toInt = read
