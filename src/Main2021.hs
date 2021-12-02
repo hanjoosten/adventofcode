@@ -12,10 +12,52 @@ getPuzzle = from puzzle2
   where
     from (a, b) = (a, show 2021 </> b)
 
+data Direction = Forward Int | Up Int | Down Int
+  deriving (Show, Eq)
+
+data Position = Position
+  { depth :: Int,
+    hor :: Int,
+    aim :: Int
+  }
+
 puzzle2 :: ([String] -> String, FilePath)
 puzzle2 = (fun, "puzzle_02.txt")
   where
-    fun rows = "Waiting for next puzzle"
+    fun rows = show . afterwards . fromStart . map parse $ rows
+
+    parse :: String -> Direction
+    parse str = case str of
+      'u' : 'p' : num -> Up (read num)
+      'd' : 'o' : 'w' : 'n' : num -> Down (read num)
+      'f' : 'o' : 'r' : 'w' : 'a' : 'r' : 'd' : num -> Forward (read num)
+      _ ->
+        error
+          "parse error"
+
+    changePos :: Position -> Direction -> Position
+    changePos pos dir = case dir of
+      Forward distance ->
+        Position
+          { hor = hor pos + distance,
+            depth = depth pos + (aim pos * distance),
+            aim = aim pos
+          }
+      Up distance ->
+        Position
+          { hor = hor pos,
+            depth = depth pos,
+            aim = aim pos - distance
+          }
+      Down distance ->
+        Position
+          { hor = hor pos,
+            depth = depth pos,
+            aim = aim pos + distance
+          }
+    fromStart :: [Direction] -> Position
+    fromStart = foldl changePos (Position 0 0 0)
+    afterwards pos = hor pos * depth pos
 
 puzzle1 :: ([String] -> String, FilePath)
 puzzle1 = (fun, "puzzle_01.txt")
