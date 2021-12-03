@@ -8,9 +8,35 @@ import System.FilePath (dropExtension, (</>))
 import Text.Read (Lexeme (String))
 
 getPuzzle :: ([String] -> String, FilePath)
-getPuzzle = from puzzle2
+getPuzzle = from puzzle3
   where
     from (a, b) = (a, show 2021 </> b)
+
+puzzle3 :: ([String] -> String, FilePath)
+puzzle3 = (fun, "puzzle_03.txt")
+  where
+    -- Assuming all rows have same length
+    fun rows = show powerConsumption
+      where
+        powerConsumption = gammaRate * epsilonRate
+        gammaRate = fromBinary $ commons (<)
+        epsilonRate = fromBinary $ commons (>)
+        commons :: (Int -> Int -> Bool) -> String
+        commons oper = map (commonBits oper . nthBits rows) [1 .. (length (head rows))]
+        fromBinary :: String -> Int
+        fromBinary xs = case xs of
+          [c] -> read xs
+          _ -> read [last xs] + 2 * fromBinary (init xs)
+        nthBits xs n
+          | n == 1 = map head xs
+          | otherwise = nthBits (map tail xs) (n -1)
+        commonBits :: (Int -> Int -> Bool) -> String -> Char
+        commonBits oper bits =
+          if (length a) `oper` (length b)
+            then '0'
+            else '1'
+          where
+            (a, b) = span (== '0') . sort $ bits
 
 data Direction = Forward Int | Up Int | Down Int
   deriving (Show, Eq)
