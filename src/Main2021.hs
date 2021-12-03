@@ -16,8 +16,33 @@ puzzle3 :: ([String] -> String, FilePath)
 puzzle3 = (fun, "puzzle_03.txt")
   where
     -- Assuming all rows have same length
-    fun rows = show powerConsumption
+    fun rows = show lifeSupportRating
       where
+        lifeSupportRating = oxygenGeneratorRating * co2ScrubberRating
+        oxygenGeneratorRating = rating (>)
+        co2ScrubberRating = rating (<=)
+        rating :: (Int -> Int -> Bool) -> Int
+        rating oper =
+          fromBinary
+            . head
+            . remainderMatrix oper [1 .. length (head rows)]
+            $ rows
+
+        remainderMatrix :: (Int -> Int -> Bool) -> [Int] -> [String] -> [String]
+        remainderMatrix _ [] rows = rows
+        remainderMatrix oper (index : rest) rows
+          | length rows == 1 = rows
+          | countAtPlace '0' `oper` countAtPlace '1' =
+            remainderMatrix oper rest . remaining '0' $ rows
+          | otherwise = remainderMatrix oper rest . remaining '1' $ rows
+          where
+            countAtPlace :: Char -> Int
+            countAtPlace bit = length . filter (\row -> bit == (head . drop (index - 1) $ row)) $ rows
+            remaining :: Char -> [String] -> [String]
+            remaining bit = filter (hasBitAtIndex bit)
+            hasBitAtIndex :: Char -> String -> Bool
+            hasBitAtIndex bit row = bit == (head . drop (index - 1) $ row)
+
         powerConsumption = gammaRate * epsilonRate
         gammaRate = fromBinary $ commons (<)
         epsilonRate = fromBinary $ commons (>)
