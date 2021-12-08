@@ -7,10 +7,9 @@ module Main2021
   )
 where
 
-import Data.List (intercalate, sort)
-import Data.Maybe (fromJust, mapMaybe)
-import Debug.Trace (trace)
+import Data.List (sort)
 import System.FilePath ((</>))
+import GHC.Exts (sortWith)
 
 getPuzzle :: ([String] -> String, FilePath)
 getPuzzle = from puzzle4
@@ -31,47 +30,72 @@ data Cell = Cell
   }
 
 instance Show Cell where
-  show c =
-    if drawn c then mempty else "(" <> show (row c) <> "," <> show (col c) <> ":" <> (if drawn c then "X" else show (value c)) <> ")"
+ show c = "(" <> show (row c) <> "," <> show (col c) <> ":" <> show (value c) <> ")"
 
-data GameState = GameState
-  { nrsStillToCome :: ![Int],
-    nrsDrawn :: ![Int],
-    boards :: ![Board],
-    winner :: Maybe Board
+newtype GameState = GameState
+  { boards :: [BoardState]
   }
   deriving (Show)
-
+data BoardState = BoardState
+   { nrsstate :: !NumberState,
+     board :: !Board
+   }
+  deriving (Show)
+data NumberState = NumberState
+   { nrsStillToCome :: ![Int],
+     nrsDrawn :: ![Int]
+   }
+  deriving (Show)
 puzzle4 :: ([String] -> String, FilePath)
 puzzle4 = (fun, "puzzle_04.txt")
   where
     (nrOfRows, nrOfCols) = (5, 5)
-    fun = show . score . playBingo . initGame
-    score :: GameState -> Int
-    score gs =
-      (sum . mapMaybe valueWhenNotDrawn . cells . fromJust . winner $ gs)
-        * (head . nrsDrawn $ gs)
-      where
-        valueWhenNotDrawn :: Cell -> Maybe Int
-        valueWhenNotDrawn c = if drawn c then Nothing else Just (value c)
+    fun rows = resultOfPlay . map playBoard . boards $ initGame rows
+    resultOfPlay :: [BoardState] -> String
+    resultOfPlay gs = "\n"<>showWinner <> showLooser
+       where
+         showWinner,showLooser :: String
+         showWinner = "Winner: "<>showIt winner
+         showLooser = "Looser: "<>showIt looser
+         sorted ::  [BoardState] ->  [BoardState]
+         sorted = sortWith (length . nrsDrawn . nrsstate )
+         winner = head (sorted gs)
+         looser = last (sorted gs)
+         showIt :: BoardState -> String
+         showIt bs = unlines . map ("  "<>) $
+            [show . boardNr . board $ bs
+            ,"Score = "<>(show . score $ bs)<>" (sumOfUnmarked: "<>show (sumOfUnmarked bs)<>"* lastcalled: "<>show (lastCalled bs)<>") "
+            ,"   "<>show (nrsstate bs)
+            ,"   "<>show (board bs)]
+         score :: BoardState -> Int
+         score bs = sumOfUnmarked bs * lastCalled bs
+         sumOfUnmarked = sum . map value . filter (not . drawn) . cells . board
+         lastCalled = head . nrsDrawn . nrsstate
+    playBoard :: BoardState -> BoardState
+    playBoard x =
+      if isWinner (board x)
+        then x
+        else case next (nrsstate x) of
+               Nothing -> error "No more numbers to draw"
+               Just ns -> playBoard BoardState { nrsstate = ns
+                                               , board = doDrawn (nrNow ns) (board x)}
+    nrNow :: NumberState -> Int
+    nrNow = head . nrsDrawn
+    next :: NumberState -> Maybe NumberState
+    next (NumberState x ds) = case x of
+                               [] -> Nothing
+                               (h:tl) -> Just $ NumberState tl (h:ds)
 
-    playBingo :: GameState -> GameState
-    playBingo = go
-      where
-        go :: GameState -> GameState
-        go gs = case winner gs of
-          Nothing -> go (drawNr gs)
-          Just _ -> gs
     initGame :: [String] -> GameState
     initGame [] = error "Empty input file!"
     initGame (firstRow : tl) =
-      GameState
-        { nrsStillToCome = read $ "[" <> firstRow <> "]",
-          nrsDrawn = [],
-          boards = readBoards 1 tl,
-          winner = Nothing
-        }
+      GameState . map (initBoard initNrs) $ readBoards 1 tl
       where
+        initNrs = NumberState
+          { nrsStillToCome = read $ "[" <> firstRow <> "]",
+          nrsDrawn = []}
+        initBoard :: NumberState -> Board -> BoardState
+        initBoard = BoardState
         readBoards :: Int -> [String] -> [Board]
         readBoards i xs
           | null xs = mempty
@@ -88,28 +112,53 @@ puzzle4 = (fun, "puzzle_04.txt")
             readRow rowNum = zipWith toCell [1 ..] . map read . words
               where
                 toCell colNum val = Cell rowNum colNum val False
-    drawNr :: GameState -> GameState
-    drawNr gs = (\x -> trace (showIt gs x) x) $
-      case gs of
-        GameState {nrsStillToCome = []} -> error "Start tracing :("
-        GameState {winner = Just _} -> gs
-        GameState
-          { nrsStillToCome = nrNow : restNrs,
-            nrsDrawn = drawns,
-            boards = bs,
-            winner = Nothing
-          } ->
-            GameState
-              { nrsStillToCome = restNrs,
-                nrsDrawn = nrNow : drawns,
-                boards = newBoards,
-                winner = case filter isWinner newBoards of
-                  [] -> Nothing
-                  [b] -> Just b
-                  xs -> error $ "There are " <> show (length xs) <> " winning boards!"
-              }
-            where
-              newBoards = map (doDrawn nrNow) bs
+    -- drawNr :: GameState -> GameState
+    -- drawNr gs = (\x -> trace (showIt gs x) x) $
+    --   case gs of
+    --     GameState {nrsStillToCome = []} -> error "Start tracing :("
+    --     GameState {winner = Just _,
+    --                looser = Just _} -> gs
+    --     GameState
+    --       { winner = Nothing
+    --       } ->
+    --         GameState
+    --           { nrsStillToCome = nrsStillToCome',
+    --             nrsDrawn = nrsDrawn',
+    --             boards = boards',
+    --             winner = case filter isWinner boards' of
+    --               [] -> Nothing
+    --               [b] -> Just (BoardSnapshot b (head nrNow))
+    --               xs -> error $ "There are " <> show (length xs) <> " winning boards!",
+    --             looser = Nothing
+    --           }
+    --     GameState
+    --       { looser = Nothing
+    --       , boards = _ : _ 
+    --       } ->
+    --         GameState
+    --           { nrsStillToCome = nrsStillToCome',
+    --             nrsDrawn = nrsDrawn',
+    --             boards = boards',
+    --             winner = winner gs,
+    --             looser = case filter (not .isWinner) boards' of
+    --               [] -> Nothing
+    --               [b] -> let endGame = playBingo GameState 
+    --                                              {nrsStillToCome = nrsStillToCome gs,
+    --                                               nrsDrawn = nrsDrawn gs,
+    --                                               boards = [b],
+    --                                               winner = Nothing,
+    --                                               looser = Nothing
+    --                                              }
+    --                      in winner endGame
+    --               xs -> error $ "There are " <> show (length xs) <> " winning boards!"
+    --           }
+    --     GameState { looser = Nothing 
+    --               , boards = [] } -> undefined
+    --  where (nrNow,nrsStillToCome') = splitAt 1 . nrsStillToCome $ gs
+    --        nrsDrawn' = nrNow <> nrsDrawn gs
+    --        boards' = map (doDrawn $ head nrNow) (boards gs)
+
+
     isWinner :: Board -> Bool
     isWinner b =
       any (`rowCompleted` b) [1 .. nrOfRows]
@@ -126,13 +175,6 @@ puzzle4 = (fun, "puzzle_04.txt")
     colsCompleted rNr = all drawn . filter (inCol rNr) . cells
       where
         inCol i c = i == col c
-    showIt gs x =
-      intercalate "\n   " $
-        [ "drawing " <> (show . head . nrsStillToCome $ gs),
-          "   " <> (show . nrsStillToCome $ x)
-        ]
-          ++ (map (("  " <>) . concatMap show . cells) . boards $ x)
-
 puzzle3 :: ([String] -> String, FilePath)
 puzzle3 = (fun, "puzzle_03.txt")
   where
