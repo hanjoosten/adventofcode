@@ -1,18 +1,21 @@
-module Main2021 (getPuzzle) where
+module Main2021
+  ( getPuzzle,
+    puzzle1,
+    puzzle2,
+    puzzle3,
+    puzzle4,
+  )
+where
 
-import Data.List (intercalate, intersperse, nub, partition, sort)
-import Data.Map (Map)
-import qualified Data.Map as Map
-import Data.Maybe (isJust, mapMaybe, fromJust)
-import qualified Data.Set as Set
-import Debug.Trace (trace, traceShowId)
-import System.FilePath (dropExtension, (</>))
-import Text.Read (Lexeme (String))
+import Data.List (intercalate, sort)
+import Data.Maybe (fromJust, mapMaybe)
+import Debug.Trace (trace)
+import System.FilePath ((</>))
 
 getPuzzle :: ([String] -> String, FilePath)
 getPuzzle = from puzzle4
   where
-    from (a, b) = (a, show 2021 </> b)
+    from (a, b) = (a, show (2021 :: Int) </> b)
 
 data Board = Board
   { boardNr :: !Int,
@@ -26,10 +29,10 @@ data Cell = Cell
     value :: !Int,
     drawn :: !Bool
   }
-   
+
 instance Show Cell where
   show c =
-    if drawn c then mempty else "("<>show(row c)<>","<>show(col c)<>":"<>(if drawn c then "X" else show (value c))<>")"
+    if drawn c then mempty else "(" <> show (row c) <> "," <> show (col c) <> ":" <> (if drawn c then "X" else show (value c)) <> ")"
 
 data GameState = GameState
   { nrsStillToCome :: ![Int],
@@ -42,20 +45,23 @@ data GameState = GameState
 puzzle4 :: ([String] -> String, FilePath)
 puzzle4 = (fun, "puzzle_04.txt")
   where
-    (nrOfRows,nrOfCols) = (5,5)
-    fun = show . score . playBingo . initGame 
+    (nrOfRows, nrOfCols) = (5, 5)
+    fun = show . score . playBingo . initGame
     score :: GameState -> Int
-    score gs = (sum . mapMaybe valueWhenNotDrawn . cells . fromJust . winner $ gs) 
-             * (head . nrsDrawn $ gs)
-      where  valueWhenNotDrawn :: Cell -> Maybe Int
-             valueWhenNotDrawn c = if drawn c then Nothing else Just (value c)
-             
+    score gs =
+      (sum . mapMaybe valueWhenNotDrawn . cells . fromJust . winner $ gs)
+        * (head . nrsDrawn $ gs)
+      where
+        valueWhenNotDrawn :: Cell -> Maybe Int
+        valueWhenNotDrawn c = if drawn c then Nothing else Just (value c)
+
     playBingo :: GameState -> GameState
     playBingo = go
-      where go :: GameState -> GameState
-            go gs = case winner gs of
-                      Nothing -> go (drawNr gs)
-                      Just w -> gs
+      where
+        go :: GameState -> GameState
+        go gs = case winner gs of
+          Nothing -> go (drawNr gs)
+          Just _ -> gs
     initGame :: [String] -> GameState
     initGame [] = error "Empty input file!"
     initGame (firstRow : tl) =
@@ -73,19 +79,19 @@ puzzle4 = (fun, "puzzle_04.txt")
           where
             (firsts, rest) = splitAt nrOfRows . filter (not . null) $ xs
             buildBoard :: Int -> [String] -> Board
-            buildBoard i xs =
+            buildBoard nr xs' =
               Board
-                { boardNr = i,
-                  cells = concat . zipWith readRow [1 .. ] $ xs
+                { boardNr = nr,
+                  cells = concat . zipWith readRow [1 ..] $ xs'
                 }
             readRow :: Int -> String -> [Cell]
-            readRow rowNum = zipWith toCell [1 .. ] . map read . words
+            readRow rowNum = zipWith toCell [1 ..] . map read . words
               where
                 toCell colNum val = Cell rowNum colNum val False
     drawNr :: GameState -> GameState
-    drawNr gs = (\x -> trace (showIt gs x)x)  $
+    drawNr gs = (\x -> trace (showIt gs x) x) $
       case gs of
-        GameState {nrsStillToCome = []} -> error "Start tracing :(" 
+        GameState {nrsStillToCome = []} -> error "Start tracing :("
         GameState {winner = Just _} -> gs
         GameState
           { nrsStillToCome = nrNow : restNrs,
@@ -93,40 +99,45 @@ puzzle4 = (fun, "puzzle_04.txt")
             boards = bs,
             winner = Nothing
           } ->
-          GameState
-            { nrsStillToCome = restNrs,
-              nrsDrawn = nrNow:drawns,
-              boards = newBoards,
-              winner = case filter isWinner newBoards of
-                          [] -> Nothing
-                          [b] -> Just b
-                          xs -> error $ "There are "<>show (length xs)<>" winning boards!"
-            }
-              where
-                newBoards = map (doDrawn nrNow) bs
+            GameState
+              { nrsStillToCome = restNrs,
+                nrsDrawn = nrNow : drawns,
+                boards = newBoards,
+                winner = case filter isWinner newBoards of
+                  [] -> Nothing
+                  [b] -> Just b
+                  xs -> error $ "There are " <> show (length xs) <> " winning boards!"
+              }
+            where
+              newBoards = map (doDrawn nrNow) bs
     isWinner :: Board -> Bool
-    isWinner b = any (`rowCompleted` b) [1..nrOfRows] ||
-                 any (`colsCompleted` b) [1..nrOfCols]
+    isWinner b =
+      any (`rowCompleted` b) [1 .. nrOfRows]
+        || any (`colsCompleted` b) [1 .. nrOfCols]
     doDrawn :: Int -> Board -> Board
-    doDrawn nr b = b{ cells = map doCell (cells b)}
-      where doCell c = c{drawn = drawn c || value c == nr}
+    doDrawn nr b = b {cells = map doCell (cells b)}
+      where
+        doCell c = c {drawn = drawn c || value c == nr}
     rowCompleted :: Int -> Board -> Bool
     rowCompleted rNr xx = all drawn . filter (inRow rNr) . cells $ xx
-      where inRow i c = i == row c
+      where
+        inRow i c = i == row c
     colsCompleted :: Int -> Board -> Bool
-    colsCompleted rNr = all drawn . filter (inCol rNr) . cells 
-      where inCol i c = i == col c
-    showIt gs x = intercalate "\n   " $
-                 [ "drawing "<>(show . head . nrsStillToCome $ gs)
-                 , "   "<>(show . nrsStillToCome $ x)
-                 ] ++
-                 (map (\row -> ("  "<>) . concatMap show . cells $ row) . boards $ x)
-                 
+    colsCompleted rNr = all drawn . filter (inCol rNr) . cells
+      where
+        inCol i c = i == col c
+    showIt gs x =
+      intercalate "\n   " $
+        [ "drawing " <> (show . head . nrsStillToCome $ gs),
+          "   " <> (show . nrsStillToCome $ x)
+        ]
+          ++ (map (("  " <>) . concatMap show . cells) . boards $ x)
+
 puzzle3 :: ([String] -> String, FilePath)
 puzzle3 = (fun, "puzzle_03.txt")
   where
     -- Assuming all rows have same length
-    fun rows = show lifeSupportRating
+    fun rows = show lifeSupportRating <>" "<>show powerConsumption
       where
         lifeSupportRating = oxygenGeneratorRating * co2ScrubberRating
         oxygenGeneratorRating = rating (>)
@@ -139,19 +150,19 @@ puzzle3 = (fun, "puzzle_03.txt")
             $ rows
 
         remainderMatrix :: (Int -> Int -> Bool) -> [Int] -> [String] -> [String]
-        remainderMatrix _ [] rows = rows
-        remainderMatrix oper (index : rest) rows
-          | length rows == 1 = rows
+        remainderMatrix _ [] xs = xs
+        remainderMatrix oper (index : rest) xs
+          | length xs == 1 = xs
           | countAtPlace '0' `oper` countAtPlace '1' =
-            remainderMatrix oper rest . remaining '0' $ rows
-          | otherwise = remainderMatrix oper rest . remaining '1' $ rows
+            remainderMatrix oper rest . remaining '0' $ xs
+          | otherwise = remainderMatrix oper rest . remaining '1' $ xs
           where
             countAtPlace :: Char -> Int
-            countAtPlace bit = length . filter (\row -> bit == ((!! max 0 (index - 1)) row)) $ rows
+            countAtPlace bit = length . filter (\x -> bit == (!! max 0 (index - 1)) x) $ xs
             remaining :: Char -> [String] -> [String]
             remaining bit = filter (hasBitAtIndex bit)
             hasBitAtIndex :: Char -> String -> Bool
-            hasBitAtIndex bit row = bit == ((!! max 0 (index - 1)) row)
+            hasBitAtIndex bit x = bit == (!! max 0 (index - 1)) x
 
         powerConsumption = gammaRate * epsilonRate
         gammaRate = fromBinary $ commons (<)
@@ -160,14 +171,14 @@ puzzle3 = (fun, "puzzle_03.txt")
         commons oper = map (commonBits oper . nthBits rows) [1 .. (length (head rows))]
         fromBinary :: String -> Int
         fromBinary xs = case xs of
-          [c] -> read xs
+          [_] -> read xs
           _ -> read [last xs] + 2 * fromBinary (init xs)
         nthBits xs n
           | n == 1 = map head xs
           | otherwise = nthBits (map tail xs) (n -1)
         commonBits :: (Int -> Int -> Bool) -> String -> Char
         commonBits oper bits =
-          if (length a) `oper` (length b)
+          if length a `oper` length b
             then '0'
             else '1'
           where
@@ -229,7 +240,7 @@ puzzle1 = (fun, "puzzle_01.txt")
     toInt = read
     increases :: [Int] -> [Bool]
     increases [] = []
-    increases [a] = []
+    increases [_] = []
     increases (a : b : rest) = (a < b) : increases (b : rest)
     sumOf3 :: [Int] -> [Int]
     sumOf3 xs = case xs of

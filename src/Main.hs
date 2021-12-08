@@ -1,12 +1,7 @@
 module Main (main) where
 
-import Data.List (intercalate, intersperse, nub, partition, sort)
-import Data.Maybe (isJust)
-import qualified Data.Set as Set
-import Debug.Trace (trace, traceShowId)
 import qualified Main2021
-import System.FilePath (dropExtension, (</>))
-import Text.Read (Lexeme (String))
+import System.FilePath (dropExtension)
 
 main :: IO ()
 main = do
