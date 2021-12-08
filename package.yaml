@@ -1,0 +1,34 @@
+name:                adventofcode
+version:             0.1.0.0
+homepage:            https://github.com/githubuser/adventofcode#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Author name here
+maintainer:          example@example.com
+copyright:           2021 Author name here
+category:            Web
+build-type:          Simple
+extra-source-files:  README.md
+
+ghc-options: 
+      - -Wall
+      - -Wcompat
+      - -Widentities
+      # TODO: Remove this option once https://github.com/haskell/cabal/issues/4739 is fixed
+      - -optP-Wno-nonportable-include-path  # Workaround, See issue #937
+#      - -Wincomplete-record-updates
+#      - -Wincomplete-uni-patterns
+      - -Wredundant-constraints
+default-extensions: 
+      - OverloadedStrings
+executables:
+  adventofcode:
+    source-dirs:
+      - src
+    main: Main.hs
+    dependencies:
+      - base >= 4.14.3.0
+      - containers
+      - filepath
+      - Cabal == 3.2.1.0
+
