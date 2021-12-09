@@ -22,6 +22,7 @@ executable adventofcode
   other-modules:
       Main2020
       Main2021
+      OldDays.Days_1_4
       Paths_adventofcode
   hs-source-dirs:
       src
