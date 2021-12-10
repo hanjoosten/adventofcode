@@ -18,15 +18,15 @@ getPuzzle = from puzzle6
 
 data Timers = Timers
   { timerDay :: !Int,
-    timer8 :: !Int,
-    timer7 :: !Int,
-    timer6 :: !Int,
-    timer5 :: !Int,
-    timer4 :: !Int,
-    timer3 :: !Int,
-    timer2 :: !Int,
-    timer1 :: !Int,
-    timer0 :: !Int
+    timer8 :: !Integer,
+    timer7 :: !Integer,
+    timer6 :: !Integer,
+    timer5 :: !Integer,
+    timer4 :: !Integer,
+    timer3 :: !Integer,
+    timer2 :: !Integer,
+    timer1 :: !Integer,
+    timer0 :: !Integer
   }
   deriving (Show)
 
@@ -52,8 +52,8 @@ puzzle6 = (fun, "puzzle_06.txt")
             }
           where
             timers = read $ "[" <> head rows <> "]"
-            amount :: Int -> Int
-            amount i = length . filter (== i) $ timers
+            amount :: Integer -> Integer
+            amount i = toInteger . length . filter (== i) $ timers
     nextDay :: Timers -> Timers
     nextDay x =
       Timers
@@ -68,13 +68,13 @@ puzzle6 = (fun, "puzzle_06.txt")
           timer1 = timer2 x,
           timer0 = timer1 x
         }
-    toDay :: Int -> Timers -> Timers
+    toDay :: Integer -> Timers -> Timers
     toDay 0 tn = tn
     toDay n tn = nextDay . toDay (n -1) $ tn
     showIt :: Timers -> [String]
     showIt t =
       [ show t,
-        show $ timer0 t + timer1 t + timer2 t + timer3 t + timer4 t + timer5 t + timer6 t + timer7 t + timer8 t
+        show $ sum [timer0 t,timer1 t, timer2 t, timer3 t, timer4 t, timer5 t, timer6 t, timer7 t, timer8 t]
       ]
 
 type Field = Map Point Int
