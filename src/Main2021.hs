@@ -4,6 +4,8 @@ module Main2021
     puzzle6,
     puzzle7,
     puzzle8,
+    puzzle9,
+    puzzle10,
   )
 where
 
@@ -16,10 +18,89 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import System.FilePath ((</>))
 
+data Part = Part1 | Part2 -- Om onderscheid te maken in de delen van de dagpuzzel.
+
 getPuzzle :: ([String] -> String, FilePath)
-getPuzzle = from puzzle9
+getPuzzle = from puzzle10
   where
     from (a, b) = (a, show (2021 :: Int) </> b)
+
+data Result
+  = Valid
+      { reverseParsed :: String
+      }
+  | Corrupted
+      { orig :: String,
+        reverseParsed :: String,
+        expected :: Maybe Char,
+        found :: Char
+      }
+  | Unfinished
+      { reverseParsed :: String,
+        restHeap :: String
+      }
+  deriving (Show)
+
+puzzle10 :: ([String] -> String, FilePath)
+puzzle10 = (fun, "puzzle_10.txt")
+  where
+    fun :: [String] -> String
+    fun rows = ("\n\n" <>) . intercalate "\n" . showIt . calculate Part2 $ input
+      where
+        input :: [String]
+        input = rows
+        calculate :: Part -> [String] -> Int
+        calculate part = case part of
+          Part1 -> sum . pointList
+          Part2 -> mid . sort . pointList
+          where
+            mid :: [Int] -> Int
+            mid [m] = m
+            mid (_ : b : c) = mid (init (b : c))
+            mid _ = error "No mid!"
+            pointList = mapMaybe (foo . doRow)
+            foo :: Result -> Maybe Int
+            foo res = case (part, res) of
+              (Part1, Corrupted {}) -> Just $ getpoints Part1 (found res)
+              (Part2, Unfinished {}) -> Just score
+                where
+                  score = foldl (\n c -> 5 * n + getpoints Part2 c) 0 . restHeap $ res
+              _ -> Nothing
+        doRow :: String -> Result
+        doRow str = go "" "" str
+          where
+            go :: String -> String -> String -> Result
+            go parsed heap unparsed =
+              case (heap, unparsed) of
+                ([], []) -> Valid parsed
+                ([], c : rest) ->
+                  case filter (\p -> fst p == c) matches of
+                    [] -> Corrupted str parsed Nothing c
+                    [(_, expect)] -> go (c : parsed) (expect : heap) rest
+                    err -> error $ "doubles found in matches: " <> show err
+                (_ : _, []) -> Unfinished parsed heap
+                (h : tl, c : rest) ->
+                  if h == c
+                    then go (c : parsed) tl rest
+                    else case filter (\p -> fst p == c) matches of
+                      [] -> Corrupted str parsed (Just h) c
+                      [(_, expect)] -> go (c : parsed) (expect : heap) rest
+                      err -> error $ "doubles found in matches: " <> show err
+        showIt :: Int -> [String]
+        showIt i = [show i]
+    matches = map match quads
+      where
+        match (a, b, _, _) = (a, b)
+    getpoints :: Part -> Char -> Int
+    getpoints part c = snd . head . filter (\(x, _) -> c == x) . map (point part) $ quads
+    point Part1 (_, b, c', _) = (b, c')
+    point Part2 (_, b, _, d) = (b, d)
+    quads =
+      [ ('(', ')', 3, 1),
+        ('[', ']', 57, 2),
+        ('{', '}', 1197, 3),
+        ('<', '>', 25137, 4)
+      ]
 
 type Area = Map (Int, Int) Int
 
@@ -134,7 +215,7 @@ puzzle8 = (fun, "puzzle_08.txt")
             sixes = ofLength 6
             uni n a b = length (a `union` b) == n
             d6 = head . filter (uni 7 d1) $ sixes
-            d9 = head . filter (uni 6 d5) $ (sixes \\ [d6])
+            d9 = head . filter (uni 6 d5) $ sixes \\ [d6]
             d0 = head $ sixes \\ [d6, d9]
             d2 = head . filter (uni 7 d4) $ fives
             d3 = head . filter (uni 5 d7) $ fives
