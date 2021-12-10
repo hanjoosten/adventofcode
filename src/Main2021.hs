@@ -2,6 +2,7 @@ module Main2021
   ( getPuzzle,
     puzzle5,
     puzzle6,
+    puzzle7
   )
 where
 
@@ -12,9 +13,26 @@ import qualified Data.Map.Strict as Map
 import System.FilePath ((</>))
 
 getPuzzle :: ([String] -> String, FilePath)
-getPuzzle = from puzzle6
+getPuzzle = from puzzle7
   where
     from (a, b) = (a, show (2021 :: Int) </> b)
+puzzle7 :: ([String] -> String, FilePath)
+puzzle7 = (fun, "puzzle_07.txt")
+  where
+    fun :: [String] -> String
+    fun rows = ("\n\n" <>) . intercalate "\n" . showIt . calculate $ input
+      where
+        input :: [Int]
+        input = read $ "[" <> head rows <> "]"
+        calculate list = minimum . map fuel $ [minimum list..maximum list]
+        fuel :: Int -> Int
+        fuel pos = sum . map fuelConsuption $ input
+          where 
+            _fuelConsuption' i = abs (i - pos)
+            fuelConsuption i = sum [1..abs (i - pos)]
+        showIt x = [show x]
+
+
 
 data Timers = Timers
   { timerDay :: !Int,
