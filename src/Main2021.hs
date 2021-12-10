@@ -11,12 +11,68 @@ import Data.Char (chr, ord)
 import Data.List (intercalate, sort, union, (\\))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Maybe
+import Data.Set (Set)
+import qualified Data.Set as Set
 import System.FilePath ((</>))
 
 getPuzzle :: ([String] -> String, FilePath)
-getPuzzle = from puzzle8
+getPuzzle = from puzzle9
   where
     from (a, b) = (a, show (2021 :: Int) </> b)
+
+type Area = Map (Int, Int) Int
+
+puzzle9 :: ([String] -> String, FilePath)
+puzzle9 = (fun, "puzzle_09.txt")
+  where
+    fun :: [String] -> String
+    fun rows = ("\n\n" <>) . intercalate "\n" . showIt . calculate $ input
+      where
+        input :: Area
+        input = Map.fromList . concat $ parsedRows
+          where
+            parsedRows :: [[((Int, Int), Int)]]
+            parsedRows = zipWith parseRow [0 ..] rows
+            parseRow :: Int -> String -> [((Int, Int), Int)]
+            parseRow rowNr =
+              zipWith (mkKeyVal rowNr) [0 ..] . map (read . pure)
+            mkKeyVal :: Int -> Int -> Int -> ((Int, Int), Int)
+            mkKeyVal row col val = ((row, col), val)
+        calculate :: Area -> Int
+        calculate area = _part2
+          where
+            _part1 = length . map ((+ 1) . snd) . Map.toList $ lowPoints
+            _part2 = product . take 3 . reverse . sort . map (length . Set.toList . getBasin . fst) . Map.toList $ lowPoints
+            lowPoints = Map.filterWithKey isLowPoint area
+            isLowPoint :: (Int, Int) -> Int -> Bool
+            isLowPoint point _ =
+              case Map.lookup point area of
+                Just val -> val < minimum (neighboursVals point)
+                Nothing -> error "The map wasn't constructed well. "
+            neighboursVals = mapMaybe (`Map.lookup` area) . Set.toList . neighbourKeys
+            neighbourKeys :: Point -> Set Point
+            neighbourKeys (row, col) = Set.fromList [(row + 1, col), (row -1, col), (row, col + 1), (row, col -1)]
+            getBasin :: Point -> Set Point
+            getBasin lowPoint = go mempty (Set.singleton lowPoint)
+              where
+                go :: Set Point -> Set Point -> Set Point
+                go a set
+                  | null set = a
+                  | otherwise = go (a `Set.union` newNeighbors) newNeighbors
+                  where
+                    newNeighbors :: Set Point
+                    newNeighbors =
+                      Set.unions (map validNeighbors . Set.toList $ set)
+                        `Set.difference` a
+                    validNeighbors :: Point -> Set Point
+                    validNeighbors = Set.filter isValid . neighbourKeys
+                    isValid :: Point -> Bool
+                    isValid p = case Map.lookup p area of
+                      Nothing -> False
+                      Just n -> n < 9
+        showIt :: Int -> [String]
+        showIt x = [show x]
 
 data Pattern = Pattern
   { zero :: String,
@@ -31,9 +87,6 @@ data Pattern = Pattern
     nine :: String
   }
   deriving (Show)
-
---instance Show Pattern where
---  show p = show  [one p,four p,seven p,eight p]
 
 puzzle8 :: ([String] -> String, FilePath)
 puzzle8 = (fun, "puzzle_08.txt")
