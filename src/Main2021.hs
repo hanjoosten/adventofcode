@@ -2,20 +2,107 @@ module Main2021
   ( getPuzzle,
     puzzle5,
     puzzle6,
-    puzzle7
+    puzzle7,
+    puzzle8,
   )
 where
 
 import Data.Char (chr, ord)
-import Data.List (intercalate)
+import Data.List (intercalate, sort, union, (\\))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import System.FilePath ((</>))
 
 getPuzzle :: ([String] -> String, FilePath)
-getPuzzle = from puzzle7
+getPuzzle = from puzzle8
   where
     from (a, b) = (a, show (2021 :: Int) </> b)
+
+data Pattern = Pattern
+  { zero :: String,
+    one :: String,
+    two :: String,
+    three :: String,
+    four :: String,
+    five :: String,
+    six :: String,
+    seven :: String,
+    eight :: String,
+    nine :: String
+  }
+  deriving (Show)
+
+--instance Show Pattern where
+--  show p = show  [one p,four p,seven p,eight p]
+
+puzzle8 :: ([String] -> String, FilePath)
+puzzle8 = (fun, "puzzle_08.txt")
+  where
+    fun :: [String] -> String
+    fun rows = ("\n\n" <>) . intercalate "\n" . showIt . calculate $ input
+      where
+        input :: [(Pattern, [String])]
+        input = map parse rows
+          where
+            parse :: String -> (Pattern, [String])
+            parse str =
+              ( wordsToPattern . map sort . words $ str1,
+                map sort . words $ tail str2
+              )
+              where
+                (str1, str2) = span (/= '|') str
+        calculate :: [(Pattern, [String])] -> Int
+        calculate = _part2
+          where
+            _part1, _part2 :: [(Pattern, [String])] -> Int
+            _part1 = length . filter foo . concatMap snd
+              where
+                foo :: String -> Bool
+                foo str = length str `elem` [2, 4, 3, 7]
+            _part2 = sum . map doRow
+              where
+                doRow :: (Pattern, [String]) -> Int
+                doRow (pat, digits) = read . concatMap (show . digit2value pat) $ digits
+
+        showIt :: Int -> [String]
+        showIt x = [show x]
+
+        wordsToPattern :: [String] -> Pattern
+        wordsToPattern digits =
+          Pattern d0 d1 d2 d3 d4 d5 d6 d7 d8 d9
+          where
+            ofLength n = filter (\digit -> length digit == n) digits
+            len = head . ofLength
+            d1 = len 2
+            d4 = len 4
+            d7 = len 3
+            d8 = len 7
+            fives = ofLength 5
+            sixes = ofLength 6
+            uni n a b = length (a `union` b) == n
+            d6 = head . filter (uni 7 d1) $ sixes
+            d9 = head . filter (uni 6 d5) $ (sixes \\ [d6])
+            d0 = head $ sixes \\ [d6, d9]
+            d2 = head . filter (uni 7 d4) $ fives
+            d3 = head . filter (uni 5 d7) $ fives
+            d5 = head $ fives \\ [d2, d3]
+        digit2value :: Pattern -> String -> Int
+        digit2value pat str
+          | str == zero pat = 0
+          | str == one pat = 1
+          | str == two pat = 2
+          | str == three pat = 3
+          | str == four pat = 4
+          | str == five pat = 5
+          | str == six pat = 6
+          | str == seven pat = 7
+          | str == eight pat = 8
+          | str == nine pat = 9
+          | otherwise =
+            error $
+              "digit not in pattern. " <> show str <> "\n"
+                <> show pat
+
 puzzle7 :: ([String] -> String, FilePath)
 puzzle7 = (fun, "puzzle_07.txt")
   where
@@ -24,15 +111,13 @@ puzzle7 = (fun, "puzzle_07.txt")
       where
         input :: [Int]
         input = read $ "[" <> head rows <> "]"
-        calculate list = minimum . map fuel $ [minimum list..maximum list]
+        calculate list = minimum . map fuel $ [minimum list .. maximum list]
         fuel :: Int -> Int
         fuel pos = sum . map fuelConsuption $ input
-          where 
+          where
             _fuelConsuption' i = abs (i - pos)
-            fuelConsuption i = sum [1..abs (i - pos)]
+            fuelConsuption i = sum [1 .. abs (i - pos)]
         showIt x = [show x]
-
-
 
 data Timers = Timers
   { timerDay :: !Int,
@@ -92,7 +177,7 @@ puzzle6 = (fun, "puzzle_06.txt")
     showIt :: Timers -> [String]
     showIt t =
       [ show t,
-        show $ sum [timer0 t,timer1 t, timer2 t, timer3 t, timer4 t, timer5 t, timer6 t, timer7 t, timer8 t]
+        show $ sum [timer0 t, timer1 t, timer2 t, timer3 t, timer4 t, timer5 t, timer6 t, timer7 t, timer8 t]
       ]
 
 type Field = Map Point Int
