@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+
 module Main2021
   ( getPuzzle,
     puzzle5,
@@ -6,6 +8,7 @@ module Main2021
     puzzle8,
     puzzle9,
     puzzle10,
+    puzzle11
   )
 where
 
@@ -16,14 +19,102 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Debug.Trace
 import System.FilePath ((</>))
 
 data Part = Part1 | Part2 -- Om onderscheid te maken in de delen van de dagpuzzel.
+  deriving (Eq)
 
 getPuzzle :: ([String] -> String, FilePath)
-getPuzzle = from puzzle10
+getPuzzle = from puzzle11
   where
     from (a, b) = (a, show (2021 :: Int) </> b)
+
+type Value11 = (Int, Bool)
+
+instance Value (Int, Bool) where
+  toVal i = (i, False)
+  showVal (i, b)
+    | b = "0"
+    | i > 9 = "#"
+    | otherwise = show i
+
+mapBoth :: (a -> x) -> (b -> y) -> (a, b) -> (x, y)
+mapBoth funcA funcB (x, y) =
+  (funcA x, funcB y)
+
+puzzle11 :: ([String] -> String, FilePath)
+puzzle11 = (fun, "puzzle_11.txt")
+  where
+    fun :: [String] -> String
+    fun rows = ("\n\n" <>) . intercalate "\n" . showIt . calculate Part2 $ input
+      where
+        input :: Area Value11
+        input = inputArea rows
+        calculate :: Part -> Area Value11 -> (Int, Area Value11)
+        calculate part = go 0 0
+          where
+            go :: Int -> Int -> Area Value11 -> (Int, Area Value11)
+            go flashes dayNr area =
+              case part of
+                Part1 ->
+                  if dayNr == 100
+                    then (flashes, area)
+                    else next
+                Part2 ->
+                  if traceDayflashes dayFlashes == 100
+                    then (flashes + dayFlashes, nextDayArea)
+                    else next
+              where
+                traceDayflashes i = trace ("Amount of flashes after day " <> show (dayNr + 1) <> ": " <> show i) i
+                next = (if part == Part1 then traceNext else id) $ go (flashes + dayFlashes) (dayNr + 1) nextDayArea
+                traceNext :: (Int, Area Value11) -> (Int, Area Value11)
+                traceNext x =
+                  trace
+                    ( unlines $
+                        [ "dayNr: " <> show dayNr,
+                          "flashes before: " <> show flashes <> ", dayFlashes: " <> show dayFlashes <> " makes " <> show (flashes + dayFlashes) <> " flashes after this day."
+                        ]
+                          ++ showIt (flashes, area)
+                    )
+                    x
+                (dayFlashes, nextDayArea) = doAllFlashes . addEnergy $ area
+                addEnergy :: Area Value11 -> Area Value11
+                addEnergy = Map.map (mapBoth (+ 1) id)
+                doAllFlashes = go' 0
+                  where
+                    go' :: Int -> Area Value11 -> (Int, Area Value11)
+                    go' flashesSofarThisDay a =
+                      if null newFlashes'
+                        then (flashesSofarThisDay, fmap resetFlashed a)
+                        else go' (flashesSofarThisDay + length newFlashes') (doNewFlashes a)
+                      where
+                        resetFlashed :: Value11 -> Value11
+                        resetFlashed (n, flashed) = if flashed then (0, False) else (n, flashed)
+                        newFlashes' :: Area Value11
+                        newFlashes' =
+                          -- (\x-> trace ("NewFlashes: "<>show x) x ) $
+                          Map.filter (\(energy, flashed) -> not flashed && energy > 9) a
+                        doNewFlashes :: Area Value11 -> Area Value11
+                        doNewFlashes = updateNeighbours . Map.keysSet $ newFlashes'
+                        updateNeighbours :: Set (Int, Int) -> Area Value11 -> Area Value11
+                        updateNeighbours s area'' =
+                          -- (\x-> trace (intercalate "\n"$"updateNeighbours: ":showArea x) x ) $
+                          foldr doNeighbours area'' s
+                        doNeighbours :: (Int, Int) -> Area Value11 -> Area Value11
+                        doNeighbours k area'' = resetSelf $ foldr addOne area'' (neighborsOf k)
+                          where
+                            resetSelf :: Area Value11 -> Area Value11
+                            resetSelf = Map.update (\_ -> Just (0, True)) k
+                        addOne :: (Int, Int) -> Area Value11 -> Area Value11
+                        addOne k = Map.adjust (mapBoth (+ 1) id) k
+                        neighborsOf :: (Int, Int) -> [(Int, Int)]
+                        neighborsOf (x, y) =
+                          [ (p, q) | p <- [x -1 .. x + 1], q <- [y -1 .. y + 1], not (p == x && q == y)
+                          ]
+        showIt :: (Int, Area Value11) -> [String]
+        showIt (flashes, area) =
+          ("Resulting flashes: " <> show flashes) : showArea area
 
 data Result
   = Valid
@@ -102,25 +193,51 @@ puzzle10 = (fun, "puzzle_10.txt")
         ('<', '>', 25137, 4)
       ]
 
-type Area = Map (Int, Int) Int
+type Area a = Map (Int, Int) a
+
+class Value a where
+  toVal :: Int -> a
+  showVal :: a -> String
+
+instance Value Int where
+  toVal = id
+  showVal = show
+
+inputArea :: Value a => [String] -> Area a
+inputArea rows = Map.fromList . concat $ parsedRows
+  where
+    parsedRows :: Value a => [[((Int, Int), a)]]
+    parsedRows = zipWith parseRow [0 ..] rows
+    parseRow :: Value a => Int -> String -> [((Int, Int), a)]
+    parseRow rowNr =
+      zipWith (mkKeyVal rowNr) [0 ..] . map (read . pure)
+    mkKeyVal :: Value a => Int -> Int -> Int -> ((Int, Int), a)
+    mkKeyVal row col i = ((row, col), toVal i)
+
+showArea :: Value a => Area a -> [String]
+showArea = lines . go Nothing . Map.assocs
+  where
+    go :: Value a => Maybe Int -> [((Int, Int), a)] -> String
+    go _ [] = []
+    go lineNr (((row, _), val) : tl) = str <> go lineNr' tl
+      where
+        (lineNr', str) =
+          case lineNr of
+            Nothing -> (Just row, "\n" <> showVal val)
+            Just l ->
+              ( Just row,
+                if l == row
+                  then showVal val
+                  else "\n" <> showVal val
+              )
 
 puzzle9 :: ([String] -> String, FilePath)
 puzzle9 = (fun, "puzzle_09.txt")
   where
     fun :: [String] -> String
-    fun rows = ("\n\n" <>) . intercalate "\n" . showIt . calculate $ input
+    fun rows = ("\n\n" <>) . intercalate "\n" . showIt . calculate . inputArea $ rows
       where
-        input :: Area
-        input = Map.fromList . concat $ parsedRows
-          where
-            parsedRows :: [[((Int, Int), Int)]]
-            parsedRows = zipWith parseRow [0 ..] rows
-            parseRow :: Int -> String -> [((Int, Int), Int)]
-            parseRow rowNr =
-              zipWith (mkKeyVal rowNr) [0 ..] . map (read . pure)
-            mkKeyVal :: Int -> Int -> Int -> ((Int, Int), Int)
-            mkKeyVal row col val = ((row, col), val)
-        calculate :: Area -> Int
+        calculate :: Area Int -> Int
         calculate area = _part2
           where
             _part1 = length . map ((+ 1) . snd) . Map.toList $ lowPoints
