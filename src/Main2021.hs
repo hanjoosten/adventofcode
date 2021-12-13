@@ -8,11 +8,11 @@ module Main2021
     puzzle8,
     puzzle9,
     puzzle10,
-    puzzle11
+    puzzle11,
   )
 where
 
-import Data.Char (chr, ord)
+import Data.Char (chr, isLower, isUpper, ord)
 import Data.List (intercalate, sort, union, (\\))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -26,9 +26,57 @@ data Part = Part1 | Part2 -- Om onderscheid te maken in de delen van de dagpuzze
   deriving (Eq)
 
 getPuzzle :: ([String] -> String, FilePath)
-getPuzzle = from puzzle11
+getPuzzle = from puzzle12
   where
     from (a, b) = (a, show (2021 :: Int) </> b)
+
+type Edge = (String, String)
+
+type Path = [String]
+
+puzzle12 :: ([String] -> String, FilePath)
+puzzle12 = (fun, "puzzle_12.txt")
+  where
+    fun :: [String] -> String
+    fun rows = ("\n\n" <>) . intercalate "\n" . showIt . calculate Part2 $ input
+      where
+        input :: [Edge]
+        input = map toEdge rows
+          where
+            toEdge str = (a, tail b)
+              where
+                (a, b) = span (/= '-') str
+        calculate :: Part -> [Edge] -> [Path]
+        calculate part edges = map reverse $ go ["start"] "start"
+          where
+            go :: Path -> String -> [Path]
+            go walked current =
+              if current == "end"
+                then [walked]
+                else case possibleNextCaves of
+                  [] -> []
+                  _ -> concat [go (nextCave : walked) nextCave | nextCave <- possibleNextCaves]
+              where
+                possibleNextCaves :: [String]
+                possibleNextCaves = mapMaybe isPossible edges
+                isPossible :: Edge -> Maybe String
+                isPossible (s, t)
+                  | s == current && validTarget t = Just t
+                  | t == current && validTarget s = Just s
+                  | otherwise = Nothing
+                validTarget "start" = False
+                validTarget t =
+                  (isUpper . head) t
+                    || t `notElem` walked
+                    || (part == Part2 && noDoublesYet)
+                noDoublesYet = length visitedSmallCaves == length (Set.fromList visitedSmallCaves)
+                visitedSmallCaves = filter (isLower . head) walked
+        showIt :: [Path] -> [String]
+        showIt paths =
+          --  (map _showPath $ paths) ++
+          [show (length paths)]
+    _showPath :: Path -> String
+    _showPath = intercalate " -> "
 
 type Value11 = (Int, Bool)
 
