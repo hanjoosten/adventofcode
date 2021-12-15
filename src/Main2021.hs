@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Main2021
   ( getPuzzle,
@@ -9,11 +10,14 @@ module Main2021
     puzzle9,
     puzzle10,
     puzzle11,
+    puzzle12,
+    puzzle13,
   )
 where
 
 import Data.Char (chr, isLower, isUpper, ord)
-import Data.List (intercalate, sort, union, (\\))
+import Data.Either
+import Data.List (intercalate, sort, union, (\\), nub)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
@@ -26,13 +30,69 @@ data Part = Part1 | Part2 -- Om onderscheid te maken in de delen van de dagpuzze
   deriving (Eq)
 
 getPuzzle :: ([String] -> String, FilePath)
-getPuzzle = from puzzle12
+getPuzzle = from puzzle13
   where
     from (a, b) = (a, show (2021 :: Int) </> b)
 
 type Edge = (String, String)
 
 type Path = [String]
+
+data Fold
+  = Horizontal Int
+  | Vertical Int
+  deriving (Show)
+
+puzzle13 :: ([String] -> String, FilePath)
+puzzle13 = (fun, "puzzle_13.txt")
+  where
+    fun :: [String] -> String
+    fun rows = ("\n\n" <>) . intercalate "\n" . calculate Part2 $ input
+      where
+        input :: [Either (Int, Int) Fold]
+        input = map parseRow rows
+          where
+            parseRow row =
+              case span (/= ',') row of
+                (foldLine, []) -> case ((!! 11) foldLine, read . drop 13 $ foldLine) of
+                  ('x', line) -> Right $ Vertical line
+                  ('y', line) -> Right $ Horizontal line
+                  _ -> error $ "No valid row: `" <> row <> "`"
+                (x, y) -> Left (read x, read . tail $ y)
+        calculate :: Part -> [Either (Int, Int) Fold] -> [String]
+        calculate part  xs = case part of
+          Part1 -> dotCount . foldedMap' (head . rights $ xs). lefts $ xs
+          Part2 -> drawMap . foldAll (rights xs) . lefts $ xs
+          
+        foldAll :: [Fold] -> [(Int,Int)] -> [(Int,Int)]
+        foldAll folds xs = foldl foldedMap xs folds
+        foldedMap :: [(Int,Int)] -> Fold -> [(Int,Int)]
+        foldedMap xs fold = nub . map doFold $ xs
+          where
+            doFold :: (Int,Int) -> (Int,Int)
+            doFold (a,b) = case fold of
+              Horizontal n -> (a,foo n b)
+              Vertical n -> (foo n a,b)
+            foo n x = if n > x then x else x - 2*(x - n)
+        foldedMap' :: Fold -> [(Int,Int)] -> [(Int,Int)]
+        foldedMap' f xs = foldedMap xs f
+        dotCount, drawMap :: [(Int,Int)] -> [String]
+        dotCount dots = ["There are "<>(show . length) dots<>" dots visible."]
+        drawMap dots = map drawRow [(minimum . map snd) dots..(maximum . map snd) dots]
+          where
+            drawRow rowNr = map drawPoint [(minimum . map fst) dots..(maximum . map fst) dots]
+              where
+                drawPoint colNr =
+                  if (colNr,rowNr) `elem` dots
+                    then '#'
+                    else '.'
+
+        _showRow :: Either (Int, Int) Fold -> String
+        _showRow (Left (a, b)) = show a <> "," <> show b
+        _showRow (Right foldLine) =
+          "fold along " <> case foldLine of
+            Horizontal n -> "y" <> "=" <> show n
+            Vertical n -> "x" <> "=" <> show n
 
 puzzle12 :: ([String] -> String, FilePath)
 puzzle12 = (fun, "puzzle_12.txt")
