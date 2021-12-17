@@ -13,6 +13,8 @@ module Main2021
     puzzle11,
     puzzle12,
     puzzle13,
+    puzzle14,
+    puzzle15
   )
 where
 
@@ -31,16 +33,87 @@ data Part = Part1 | Part2 -- Om onderscheid te maken in de delen van de dagpuzze
   deriving (Eq)
 
 getPuzzle :: ([String] -> String, FilePath)
-getPuzzle = from puzzle14
+getPuzzle = from puzzle15
   where
     from (a, b) = (a, show (2021 :: Int) </> b)
+
+puzzle15 :: ([String] -> String, FilePath)
+puzzle15 = (fun, "puzzle_15.txt")
+  where
+    fun :: [String] -> String
+    fun rows = ("\n\n" <>) . intercalate "\n" . calculate $ input Part2
+      where
+        input :: Part -> Map (Int,Int) Int
+        input part = case part of
+          Part1 -> Map.fromList . concatMap parseRow . zip [0..] $ rows
+          Part2 -> times5 (input Part1)
+          where times5 :: Map (Int, Int) Int -> Map (Int, Int) Int
+                times5 baseTile = trace (unlines. showIt $ baseTile) . (\x-> trace (unlines $ showIt x) x) $
+                   Map.unions [ tile a b | a <- [0..4],b <- [0..4]]
+                  where
+                    tile :: Int -> Int -> Map (Int, Int) Int
+                    tile a b = mkNewMap
+                      where mkNewMap :: Map (Int,Int) Int
+                            mkNewMap = Map.fromList .map foo . Map.keys $ baseTile
+                              where
+                                foo :: (Int,Int) -> ((Int,Int),Int)
+                                foo (x,y) = ((x+(width+1)*a,y+(hight+1)*b), newVal (fromJust $ Map.lookup (x,y) baseTile))
+                                (width,hight) = fst . fromJust . Map.lookupMax $ baseTile
+                            newVal x = if val > 9 then val - 9 else val
+                              where val = sum [x,a,b]
+                parseRow :: (Int,String) -> [((Int,Int),Int)]
+                parseRow (rowNr,row) = zipWith (curry foo) [0..] . map (read .(: [])) $ row
+                 where foo ::(Int,Int) -> ((Int,Int),Int)
+                       foo (col,val) = ((col,rowNr),val)
+        calculate :: Map (Int, Int) Int -> [String]
+        calculate m = trace (show (fst . fromJust . Map.lookupMax $ m)) .
+                      trace (show (fst . fromJust . Map.lookupMin $ m)) . 
+              lines . show $ dijkstra step (fst . fromJust . Map.lookupMax $ m) (0, fst . fromJust . Map.lookupMin $ m)
+           where step :: (Int,(Int,Int)) -> [(Int,(Int,Int))]
+                 step (cost,node) =
+                      [ (cost + edgeCost, child)
+                      | (edgeCost , child) <- fromMaybe [] $ Map.lookup node (graph m)
+                      ]
+
+        graph m = Map.fromList . map froms . Map.keys $ m
+          where froms :: (Int,Int) -> ((Int, Int), [(Int,(Int, Int))])
+                froms (row,col) -- all outgoing edges with their cost from a given node
+                  = ((row,col), mapMaybe doEdge [(0,1),(1,0),(-1,0),(0,-1)])
+                  where doEdge (a,b) = case Map.lookup dest m of
+                          Nothing -> Nothing
+                          Just n -> Just (n,dest)
+                          where dest = (row + a,col+b)
+        showIt :: Map (Int,Int) Int -> [String]
+        showIt m = map showRow [minRow..maxRow]
+            where showRow :: Int -> String
+                  showRow i = concatMap (\col -> show (fromJust $ Map.lookup (col,i) m))  [minCol..maxCol]
+                  (minCol,minRow) = fst . fromJust . Map.lookupMin $ m
+                  (maxCol,maxRow) = fst . fromJust . Map.lookupMax $ m
+dijkstra
+    :: (Ord cost , Ord node)
+    => ((cost , node) -> [(cost , node)]) -- ^ Where we can go from a node and the cost of that
+    -> node                               -- ^ Where we want to get to
+    -> (cost , node)                      -- ^ The start position
+    -> Maybe (cost , node)                -- ^ Maybe the answer. Maybe it doesn't exist
+dijkstra next target start = search mempty (Set.singleton start)
+    where
+        search visited toBeVisited = case Set.minView toBeVisited of
+            Nothing -> Nothing
+            Just ((cost , vertex) , withoutVertex)
+                | vertex == target            -> Just (cost , vertex)
+                | vertex `Set.member` visited -> search visited withoutVertex
+                | otherwise                   -> search visitedWithNode withNext
+                where
+                    visitedWithNode = Set.insert vertex visited
+                    withNext = foldr Set.insert withoutVertex $ next (cost , vertex)
+
 
 type Rule = ((Char,Char),Char)
 data StepResult = StepResult
        {dayNr :: Int
        ,pairCounts :: Map (Char,Char) Int
        ,charCounts :: Map Char Int
-       } 
+       }
 puzzle14 :: ([String] -> String, FilePath)
 puzzle14 = (fun, "puzzle_14.txt")
   where
@@ -200,7 +273,7 @@ puzzle12 = (fun, "puzzle_12.txt")
                 validTarget t =
                   (isUpper . head) t
                     || t `notElem` walked
-                    || (part == Part2 && noDoublesYet)
+                    || part == Part2 && noDoublesYet
                 noDoublesYet = length visitedSmallCaves == length (Set.fromList visitedSmallCaves)
                 visitedSmallCaves = filter (isLower . head) walked
         showIt :: [Path] -> [String]
