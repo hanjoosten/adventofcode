@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TupleSections #-}
 
 module Main2021
   ( getPuzzle,
@@ -30,9 +31,80 @@ data Part = Part1 | Part2 -- Om onderscheid te maken in de delen van de dagpuzze
   deriving (Eq)
 
 getPuzzle :: ([String] -> String, FilePath)
-getPuzzle = from puzzle13
+getPuzzle = from puzzle14
   where
     from (a, b) = (a, show (2021 :: Int) </> b)
+
+type Rule = ((Char,Char),Char)
+data StepResult = StepResult
+       {dayNr :: Int
+       ,pairCounts :: Map (Char,Char) Int
+       ,charCounts :: Map Char Int
+       } 
+puzzle14 :: ([String] -> String, FilePath)
+puzzle14 = (fun, "puzzle_14.txt")
+  where
+    fun :: [String] -> String
+    fun rows = ("\n\n" <>) . intercalate "\n" . calculate Part2 $ input
+      where
+        input :: [Either String Rule]
+        input = map parseRow rows
+          where parseRow row = case span (/= ' ') row of
+                  (first,[]) -> Left first
+                  (first,rest) -> Right ((head first,head (tail first)), rest !! 4)
+        calculate :: Part -> [Either String Rule] -> [String]
+        calculate part xs = [showIt  $ go (case part of
+                                           Part1 -> 10
+                                           Part2 -> 40) (initial . head . lefts $ xs)]
+          where ruleMap = Map.fromList . rights $ xs
+                initial :: String -> StepResult
+                initial templ = StepResult {
+                    dayNr=0,
+                    pairCounts=countKeys mempty . pairs $ templ ,
+                    charCounts=countKeys mempty . map (, 1) $ templ
+                    }
+                  where
+                    pairs :: [a] -> [((a, a),Int)]
+                    pairs str = case str of
+                      (a:b:rest) -> ((a,b),1) : pairs (b:rest)
+                      _ -> []
+                countKeys :: Ord k => Map k Int -> [(k,Int)] -> Map k Int
+                countKeys m str =
+                  case str of
+                    [] -> m
+                    ((key,amount):tl) ->
+                        countKeys (Map.insert key amount' m) tl
+                        where amount' = case Map.lookup key m of
+                                Nothing -> amount
+                                Just n -> n+amount
+                go :: Int -> StepResult -> StepResult
+                go n m
+                  | n == 0 = m
+                  | otherwise = go (n-1) (doStep m)
+                doStep :: StepResult -> StepResult
+                doStep sr = StepResult {
+                    dayNr=1+dayNr sr,
+                    pairCounts= countKeys mempty . concatMap newPairs . Map.toList $ pairCounts sr,
+                    charCounts= countKeys
+                                   (charCounts sr)
+                                   . concatMap newChars . Map.toList $ pairCounts sr
+                    }
+                    where newPairs :: ((Char, Char), Int) -> [((Char, Char), Int)]
+                          newPairs ((a,b),amount) = case Map.lookup (a, b) ruleMap of
+                            Nothing -> [((a,b),amount)]
+                            Just c -> [((a,c),amount),((c,b),amount)]
+                          newChars :: ((Char,Char), Int) -> [(Char, Int)]
+                          newChars (key,amount) = case Map.lookup key ruleMap of
+                            Nothing -> []
+                            Just c -> [(c,amount)]
+
+                showIt :: StepResult -> String
+                showIt sr = unlines $
+                  ("After day "<>show (dayNr sr)<>":")
+                  :
+                  [ show a<>" - "<>show b<>" = "<>show (a-b)]
+                  where a = maximum . Map.elems . charCounts $ sr
+                        b = minimum . Map.elems . charCounts $ sr
 
 type Edge = (String, String)
 
@@ -63,7 +135,7 @@ puzzle13 = (fun, "puzzle_13.txt")
         calculate part  xs = case part of
           Part1 -> dotCount . foldedMap' (head . rights $ xs). lefts $ xs
           Part2 -> drawMap . foldAll (rights xs) . lefts $ xs
-          
+
         foldAll :: [Fold] -> [(Int,Int)] -> [(Int,Int)]
         foldAll folds xs = foldl foldedMap xs folds
         foldedMap :: [(Int,Int)] -> Fold -> [(Int,Int)]
@@ -163,10 +235,10 @@ puzzle11 = (fun, "puzzle_11.txt")
         calculate part = go 0 0
           where
             go :: Int -> Int -> Area Value11 -> (Int, Area Value11)
-            go flashes dayNr area =
+            go flashes dayNr' area =
               case part of
                 Part1 ->
-                  if dayNr == 100
+                  if dayNr' == 100
                     then (flashes, area)
                     else next
                 Part2 ->
@@ -174,13 +246,13 @@ puzzle11 = (fun, "puzzle_11.txt")
                     then (flashes + dayFlashes, nextDayArea)
                     else next
               where
-                traceDayflashes i = trace ("Amount of flashes after day " <> show (dayNr + 1) <> ": " <> show i) i
-                next = (if part == Part1 then traceNext else id) $ go (flashes + dayFlashes) (dayNr + 1) nextDayArea
+                traceDayflashes i = trace ("Amount of flashes after day " <> show (dayNr' + 1) <> ": " <> show i) i
+                next = (if part == Part1 then traceNext else id) $ go (flashes + dayFlashes) (dayNr' + 1) nextDayArea
                 traceNext :: (Int, Area Value11) -> (Int, Area Value11)
                 traceNext x =
                   trace
                     ( unlines $
-                        [ "dayNr: " <> show dayNr,
+                        [ "dayNr: " <> show dayNr',
                           "flashes before: " <> show flashes <> ", dayFlashes: " <> show dayFlashes <> " makes " <> show (flashes + dayFlashes) <> " flashes after this day."
                         ]
                           ++ showIt (flashes, area)
