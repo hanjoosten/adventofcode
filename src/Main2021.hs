@@ -37,7 +37,7 @@ data Part = Part1 | Part2 -- Om onderscheid te maken in de delen van de dagpuzze
   deriving (Eq)
 
 getPuzzle :: ([String] -> String, FilePath)
-getPuzzle = from puzzle16
+getPuzzle = from puzzle19
   where
     from (a, b) = (a, show (2021 :: Int) </> b)
 
