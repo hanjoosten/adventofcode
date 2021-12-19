@@ -15,13 +15,16 @@ module Main2021
     puzzle13,
     puzzle14,
     puzzle15,
-    puzzle16
+    puzzle16,
+    puzzle17,
+    puzzle18,
+    puzzle19,
   )
 where
 
 import Data.Char (chr, isLower, isUpper, ord)
 import Data.Either
-import Data.List (intercalate, sort, union, (\\), nub)
+import Data.List (intercalate, nub, sort, union, (\\))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
@@ -29,6 +32,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Debug.Trace
 import System.FilePath ((</>))
+
 data Part = Part1 | Part2 -- Om onderscheid te maken in de delen van de dagpuzzel.
   deriving (Eq)
 
@@ -37,61 +41,97 @@ getPuzzle = from puzzle16
   where
     from (a, b) = (a, show (2021 :: Int) </> b)
 
+puzzle19 :: ([String] -> String, FilePath)
+puzzle19 = (fun, "puzzle_19.txt")
+  where
+    fun :: [String] -> String
+    fun rows = ("\n\n" <>) . intercalate "\n" . calculate $ input
+      where
+        input = rows
+        calculate = id
+
+puzzle18 :: ([String] -> String, FilePath)
+puzzle18 = (fun, "puzzle_18.txt")
+  where
+    fun :: [String] -> String
+    fun rows = ("\n\n" <>) . intercalate "\n" . calculate $ input
+      where
+        input = rows
+        calculate = id
+
+puzzle17 :: ([String] -> String, FilePath)
+puzzle17 = (fun, "puzzle_17.txt")
+  where
+    fun :: [String] -> String
+    fun rows = ("\n\n" <>) . intercalate "\n" . calculate $ input
+      where
+        input = rows
+        calculate = id
+
 data Packet = Packet
-  { header :: PacketHeader
-  , payLoad :: PayLoad
-  , pRest :: Bits
-  } deriving Show
-data PayLoad =
-   Literal Int
- | Operator
-     { packets :: [Packet]
-     }
-  deriving Show
+  { header :: PacketHeader,
+    payLoad :: PayLoad,
+    pRest :: Bits
+  }
+  deriving (Show)
+
+data PayLoad
+  = Literal Int
+  | Operator
+      { packets :: [Packet]
+      }
+  deriving (Show)
+
 newtype Bits = Bits String
+
 instance Show Bits where
-  show (Bits b) = "Bits "<>b<>" (length = "<>show (length b)<>")"
-data Mode = 
-       LiteralPackage
-     | NumberOfPackets Int
-     | NumberOfBitsOfSubpackets Int
-     deriving Show
+  show (Bits b) = "Bits " <> b <> " (length = " <> show (length b) <> ")"
+
+data Mode
+  = LiteralPackage
+  | NumberOfPackets Int
+  | NumberOfBitsOfSubpackets Int
+  deriving (Show)
+
 data PacketHeader = PacketHeader
   { version :: Int,
     typeId :: Int,
     modus :: Mode
-  } deriving Show
+  }
+  deriving (Show)
+
 puzzle16 :: ([String] -> String, FilePath)
 puzzle16 = (fun, "puzzle_16.txt")
   where
     toBits :: String -> Bits
     toBits = Bits . concatMap char2Bits
-      where char2Bits :: Char -> String
-            char2Bits c = case c of
-              '0' -> "0000"
-              '1' -> "0001"
-              '2' -> "0010"
-              '3' -> "0011"
-              '4' -> "0100"
-              '5' -> "0101"
-              '6' -> "0110"
-              '7' -> "0111"
-              '8' -> "1000"
-              '9' -> "1001"
-              'A' -> "1010"
-              'B' -> "1011"
-              'C' -> "1100"
-              'D' -> "1101"
-              'E' -> "1110"
-              'F' -> "1111"
-              _ -> error $ "No bits for "<>[c]
+      where
+        char2Bits :: Char -> String
+        char2Bits c = case c of
+          '0' -> "0000"
+          '1' -> "0001"
+          '2' -> "0010"
+          '3' -> "0011"
+          '4' -> "0100"
+          '5' -> "0101"
+          '6' -> "0110"
+          '7' -> "0111"
+          '8' -> "1000"
+          '9' -> "1001"
+          'A' -> "1010"
+          'B' -> "1011"
+          'C' -> "1100"
+          'D' -> "1101"
+          'E' -> "1110"
+          'F' -> "1111"
+          _ -> error $ "No bits for " <> [c]
     bitstringOf :: Bits -> String
     bitstringOf (Bits bits) = bits
     bitsToInt :: Bits -> Int
     bitsToInt (Bits bits) = case reverse bits of -- Not very efficient, but OK for tiny strings.
       [] -> error "No Bits!"
       [_] -> read bits
-      (h:tl) -> read [h] + 2 * bitsToInt (Bits $ reverse tl)
+      (h : tl) -> read [h] + 2 * bitsToInt (Bits $ reverse tl)
     fun :: [String] -> String
     fun rows = ("\n\n" <>) . intercalate "\n" . calculate $ input
       where
@@ -99,97 +139,111 @@ puzzle16 = (fun, "puzzle_16.txt")
         input = readPacket . toBits . head $ rows
         calculate :: Packet -> [String]
         calculate p = lines . show . expressionValue Part2 $ p
-    expressionValue part = 
+    expressionValue part =
       case part of
         Part1 -> sumOfVersions
-        Part2 -> calculationPart2 
+        Part2 -> calculationPart2
     calculationPart2 :: Packet -> Int
-    calculationPart2 p = 
-        case typeId . header $ p of
-          0 -> sum subexprs
-          1 -> product subexprs
-          2 -> minimum subexprs
-          3 -> maximum subexprs
-          4 -> literal p
-          5 -> if first > second then 1 else 0
-          6 -> if first < second then 1 else 0
-          7 -> if first == second then 1 else 0
-          err -> error $ "Invalid typeId: "<>show err  
-      where literal lit = case payLoad lit of
-              Literal n -> n
-              Operator _ -> error "This is not a literal package."
-            subexprs = map calculationPart2 . packets . payLoad $ p
-            first:second:_ = subexprs
+    calculationPart2 p =
+      case typeId . header $ p of
+        0 -> sum subexprs
+        1 -> product subexprs
+        2 -> minimum subexprs
+        3 -> maximum subexprs
+        4 -> literal p
+        5 -> if first > second then 1 else 0
+        6 -> if first < second then 1 else 0
+        7 -> if first == second then 1 else 0
+        err -> error $ "Invalid typeId: " <> show err
+      where
+        literal lit = case payLoad lit of
+          Literal n -> n
+          Operator _ -> error "This is not a literal package."
+        subexprs = map calculationPart2 . packets . payLoad $ p
+        first : second : _ = subexprs
     sumOfVersions :: Packet -> Int
     sumOfVersions p =
-        (version . header $ p)
-      + case payLoad p of
+      (version . header $ p)
+        + case payLoad p of
           Literal _ -> 0
-          Operator{packets = ps} -> sum . map sumOfVersions $ ps
+          Operator {packets = ps} -> sum . map sumOfVersions $ ps
     readPacket :: Bits -> Packet
-    readPacket bits = 
-       Packet { header = packetHeader
-              , payLoad = thePayload
-              , pRest = pRest'
-              }
-      where (packetHeader,bodyBits) = readHeader bits
-            readHeader :: Bits -> (PacketHeader,Bits)
-            readHeader bs = (PacketHeader
-                                    {version = bitsToInt version'
-                                    ,typeId = bitsToInt typeId'
-                                    ,modus = modus'
-                                    }, case modus' of
-                                         LiteralPackage -> afterTypeId
-                                         NumberOfPackets _ -> afterModusBits
-                                         NumberOfBitsOfSubpackets _ -> afterModusBits)
-              where (version',afterVersion) = both Bits . splitAt 3 . bitstringOf $ bs
-                    (typeId',afterTypeId) = both Bits . splitAt 3 . bitstringOf $ afterVersion
-                    Bits (modusBit:afterModusBit) = afterTypeId
-                    (nextModusBits,afterModusBits) = both Bits . splitAt (if modusBit == '0' then 15 else 11) $ afterModusBit
-                    modus'  
-                      | bitsToInt typeId' == 4 = LiteralPackage
-                      | modusBit == '0' = NumberOfBitsOfSubpackets (bitsToInt nextModusBits)
-                      | otherwise = NumberOfPackets (bitsToInt nextModusBits)
-            (thePayload,pRest') = readBody
+    readPacket bits =
+      Packet
+        { header = packetHeader,
+          payLoad = thePayload,
+          pRest = pRest'
+        }
+      where
+        (packetHeader, bodyBits) = readHeader bits
+        readHeader :: Bits -> (PacketHeader, Bits)
+        readHeader bs =
+          ( PacketHeader
+              { version = bitsToInt version',
+                typeId = bitsToInt typeId',
+                modus = modus'
+              },
+            case modus' of
+              LiteralPackage -> afterTypeId
+              NumberOfPackets _ -> afterModusBits
+              NumberOfBitsOfSubpackets _ -> afterModusBits
+          )
+          where
+            (version', afterVersion) = both Bits . splitAt 3 . bitstringOf $ bs
+            (typeId', afterTypeId) = both Bits . splitAt 3 . bitstringOf $ afterVersion
+            Bits (modusBit : afterModusBit) = afterTypeId
+            (nextModusBits, afterModusBits) = both Bits . splitAt (if modusBit == '0' then 15 else 11) $ afterModusBit
+            modus'
+              | bitsToInt typeId' == 4 = LiteralPackage
+              | modusBit == '0' = NumberOfBitsOfSubpackets (bitsToInt nextModusBits)
+              | otherwise = NumberOfPackets (bitsToInt nextModusBits)
+        (thePayload, pRest') = readBody
 
-            readBody :: (PayLoad, Bits)
-            readBody = case modus packetHeader of
-                LiteralPackage -> readLiteral bodyBits
-                NumberOfPackets n -> (Operator ps, remainingBits)
-                  where (ps,remainingBits) = readNpackets n bodyBits
-                NumberOfBitsOfSubpackets n -> (Operator ps, remainingBits)
-                  where (ps,remainingBits) = (consumeNbits (readPacket bitsToConsume),leftOvers)
-                         where (bitsToConsume,leftOvers) = both Bits . splitAt n . bitstringOf $ bodyBits
-              where readNpackets :: Int -> Bits -> ([Packet],Bits)
-                    readNpackets 0 xs = ([],xs)
-                    readNpackets i leftovers = (p:ps,r)
-                      where
-                        (ps,r) = readNpackets (i-1) (pRest p)
-                        p = readPacket leftovers
-                    consumeNbits :: Packet -> [Packet]
-                    consumeNbits p = p : doRest p
-                        
-                    doRest p
-                      | length (bitstringOf . pRest $ p) < 6 = []
-                      | otherwise = consumeNbits . readPacket . pRest $ p
-
-            readLiteral :: Bits -> (PayLoad,Bits)
-            readLiteral bs = ( Literal $ bitsToInt a
-                             , b)
+        readBody :: (PayLoad, Bits)
+        readBody = case modus packetHeader of
+          LiteralPackage -> readLiteral bodyBits
+          NumberOfPackets n -> (Operator ps, remainingBits)
+            where
+              (ps, remainingBits) = readNpackets n bodyBits
+          NumberOfBitsOfSubpackets n -> (Operator ps, remainingBits)
+            where
+              (ps, remainingBits) = (consumeNbits (readPacket bitsToConsume), leftOvers)
+                where
+                  (bitsToConsume, leftOvers) = both Bits . splitAt n . bitstringOf $ bodyBits
+          where
+            readNpackets :: Int -> Bits -> ([Packet], Bits)
+            readNpackets 0 xs = ([], xs)
+            readNpackets i leftovers = (p : ps, r)
               where
-                (a,b) = both Bits . readLiteral' "" . bitstringOf $ bs
-                readLiteral' :: String -> String -> (String, String)
-                readLiteral' ws str = case head as of
-                      '1' -> readLiteral' (ws <>tail as) as'
-                      '0' -> (ws <>tail as,as')
-                      _ -> error $ "Error at readLiteral' "<>ws<>" "<>str
-                  where (as, as') = splitAt 5 str
+                (ps, r) = readNpackets (i -1) (pRest p)
+                p = readPacket leftovers
+            consumeNbits :: Packet -> [Packet]
+            consumeNbits p = p : doRest p
+
+            doRest p
+              | length (bitstringOf . pRest $ p) < 6 = []
+              | otherwise = consumeNbits . readPacket . pRest $ p
+
+        readLiteral :: Bits -> (PayLoad, Bits)
+        readLiteral bs =
+          ( Literal $ bitsToInt a,
+            b
+          )
+          where
+            (a, b) = both Bits . readLiteral' "" . bitstringOf $ bs
+            readLiteral' :: String -> String -> (String, String)
+            readLiteral' ws str = case head as of
+              '1' -> readLiteral' (ws <> tail as) as'
+              '0' -> (ws <> tail as, as')
+              _ -> error $ "Error at readLiteral' " <> ws <> " " <> str
+              where
+                (as, as') = splitAt 5 str
 
 -- | Apply a single function to both components of a pair.
 --
 -- > both succ (1,2) == (2,3)
 both :: (a -> b) -> (a, a) -> (b, b)
-both f (x,y) = (f x, f y)
+both f (x, y) = (f x, f y)
 
 puzzle15 :: ([String] -> String, FilePath)
 puzzle15 = (fun, "puzzle_15.txt")
@@ -197,69 +251,85 @@ puzzle15 = (fun, "puzzle_15.txt")
     fun :: [String] -> String
     fun rows = ("\n\n" <>) . intercalate "\n" . calculate $ input Part2
       where
-        input :: Part -> Map (Int,Int) Int
+        input :: Part -> Map (Int, Int) Int
         input part = case part of
-          Part1 -> Map.fromList . concatMap parseRow . zip [0..] $ rows
+          Part1 -> Map.fromList . concatMap parseRow . zip [0 ..] $ rows
           Part2 -> times5 (input Part1)
-          where times5 :: Map (Int, Int) Int -> Map (Int, Int) Int
-                times5 baseTile = Map.unions [ tile a b | a <- [0..4],b <- [0..4]]
+          where
+            times5 :: Map (Int, Int) Int -> Map (Int, Int) Int
+            times5 baseTile = Map.unions [tile a b | a <- [0 .. 4], b <- [0 .. 4]]
+              where
+                tile :: Int -> Int -> Map (Int, Int) Int
+                tile a b = mkNewMap
                   where
-                    tile :: Int -> Int -> Map (Int, Int) Int
-                    tile a b = mkNewMap
-                      where mkNewMap :: Map (Int,Int) Int
-                            mkNewMap = Map.fromList .map foo . Map.keys $ baseTile
-                              where
-                                foo :: (Int,Int) -> ((Int,Int),Int)
-                                foo (x,y) = ((x+(width+1)*a,y+(hight+1)*b), newVal (fromJust $ Map.lookup (x,y) baseTile))
-                                (width,hight) = fst . fromJust . Map.lookupMax $ baseTile
-                            newVal x = if val > 9 then val - 9 else val
-                              where val = sum [x,a,b]
-                parseRow :: (Int,String) -> [((Int,Int),Int)]
-                parseRow (rowNr,row) = zipWith (curry foo) [0..] . map (read .(: [])) $ row
-                 where foo ::(Int,Int) -> ((Int,Int),Int)
-                       foo (col,val) = ((col,rowNr),val)
+                    mkNewMap :: Map (Int, Int) Int
+                    mkNewMap = Map.fromList . map foo . Map.keys $ baseTile
+                      where
+                        foo :: (Int, Int) -> ((Int, Int), Int)
+                        foo (x, y) = ((x + (width + 1) * a, y + (hight + 1) * b), newVal (fromJust $ Map.lookup (x, y) baseTile))
+                        (width, hight) = fst . fromJust . Map.lookupMax $ baseTile
+                    newVal x = if val > 9 then val - 9 else val
+                      where
+                        val = sum [x, a, b]
+            parseRow :: (Int, String) -> [((Int, Int), Int)]
+            parseRow (rowNr, row) = zipWith (curry foo) [0 ..] . map (read . (: [])) $ row
+              where
+                foo :: (Int, Int) -> ((Int, Int), Int)
+                foo (col, val) = ((col, rowNr), val)
         calculate :: Map (Int, Int) Int -> [String]
-        calculate m = lines . show $ 
-             dijkstra step (fst . fromJust . Map.lookupMax $ m) (0, fst . fromJust . Map.lookupMin $ m)
-           where step :: (Int,(Int,Int)) -> [(Int,(Int,Int))]
-                 step (cost,node) =
-                      [ (cost + edgeCost, child)
-                      | (edgeCost , child) <- fromMaybe [] $ Map.lookup node (graph m)
-                      ]
+        calculate m =
+          lines . show $
+            dijkstra step (fst . fromJust . Map.lookupMax $ m) (0, fst . fromJust . Map.lookupMin $ m)
+          where
+            step :: (Int, (Int, Int)) -> [(Int, (Int, Int))]
+            step (cost, node) =
+              [ (cost + edgeCost, child)
+                | (edgeCost, child) <- fromMaybe [] $ Map.lookup node (graph m)
+              ]
 
         graph m = Map.fromList . map froms . Map.keys $ m
-          where froms :: (Int,Int) -> ((Int, Int), [(Int,(Int, Int))])
-                froms (row,col) -- all outgoing edges with their cost from a given node
-                  = ((row,col), mapMaybe doEdge [(0,1),(1,0),(-1,0),(0,-1)])
-                  where doEdge (a,b) = case Map.lookup dest m of
-                          Nothing -> Nothing
-                          Just n -> Just (n,dest)
-                          where dest = (row + a,col+b)
-dijkstra
-    :: (Ord cost , Ord node)
-    => ((cost , node) -> [(cost , node)]) -- ^ Where we can go from a node and the cost of that
-    -> node                               -- ^ Where we want to get to
-    -> (cost , node)                      -- ^ The start position
-    -> Maybe (cost , node)                -- ^ Maybe the answer. Maybe it doesn't exist
+          where
+            froms :: (Int, Int) -> ((Int, Int), [(Int, (Int, Int))])
+            froms (row, col) -- all outgoing edges with their cost from a given node
+              =
+              ((row, col), mapMaybe doEdge [(0, 1), (1, 0), (-1, 0), (0, -1)])
+              where
+                doEdge (a, b) = case Map.lookup dest m of
+                  Nothing -> Nothing
+                  Just n -> Just (n, dest)
+                  where
+                    dest = (row + a, col + b)
+
+dijkstra ::
+  (Ord cost, Ord node) =>
+  -- | Where we can go from a node and the cost of that
+  ((cost, node) -> [(cost, node)]) ->
+  -- | Where we want to get to
+  node ->
+  -- | The start position
+  (cost, node) ->
+  -- | Maybe the answer. Maybe it doesn't exist
+  Maybe (cost, node)
 dijkstra next target start = search mempty (Set.singleton start)
-    where
-        search visited toBeVisited = case Set.minView toBeVisited of
-            Nothing -> Nothing
-            Just ((cost , vertex) , withoutVertex)
-                | vertex == target            -> Just (cost , vertex)
-                | vertex `Set.member` visited -> search visited withoutVertex
-                | otherwise                   -> search visitedWithNode withNext
-                where
-                    visitedWithNode = Set.insert vertex visited
-                    withNext = foldr Set.insert withoutVertex $ next (cost , vertex)
+  where
+    search visited toBeVisited = case Set.minView toBeVisited of
+      Nothing -> Nothing
+      Just ((cost, vertex), withoutVertex)
+        | vertex == target -> Just (cost, vertex)
+        | vertex `Set.member` visited -> search visited withoutVertex
+        | otherwise -> search visitedWithNode withNext
+        where
+          visitedWithNode = Set.insert vertex visited
+          withNext = foldr Set.insert withoutVertex $ next (cost, vertex)
 
+type Rule = ((Char, Char), Char)
 
-type Rule = ((Char,Char),Char)
 data StepResult = StepResult
-       {dayNr :: Int
-       ,pairCounts :: Map (Char,Char) Int
-       ,charCounts :: Map Char Int
-       }
+  { dayNr :: Int,
+    pairCounts :: Map (Char, Char) Int,
+    charCounts :: Map Char Int
+  }
+
 puzzle14 :: ([String] -> String, FilePath)
 puzzle14 = (fun, "puzzle_14.txt")
   where
@@ -268,62 +338,78 @@ puzzle14 = (fun, "puzzle_14.txt")
       where
         input :: [Either String Rule]
         input = map parseRow rows
-          where parseRow row = case span (/= ' ') row of
-                  (first,[]) -> Left first
-                  (first,rest) -> Right ((head first,head (tail first)), rest !! 4)
+          where
+            parseRow row = case span (/= ' ') row of
+              (first, []) -> Left first
+              (first, rest) -> Right ((head first, head (tail first)), rest !! 4)
         calculate :: Part -> [Either String Rule] -> [String]
-        calculate part xs = [showIt  $ go (case part of
-                                           Part1 -> 10
-                                           Part2 -> 40) (initial . head . lefts $ xs)]
-          where ruleMap = Map.fromList . rights $ xs
-                initial :: String -> StepResult
-                initial templ = StepResult {
-                    dayNr=0,
-                    pairCounts=countKeys mempty . pairs $ templ ,
-                    charCounts=countKeys mempty . map (, 1) $ templ
-                    }
+        calculate part xs =
+          [ showIt $
+              go
+                ( case part of
+                    Part1 -> 10
+                    Part2 -> 40
+                )
+                (initial . head . lefts $ xs)
+          ]
+          where
+            ruleMap = Map.fromList . rights $ xs
+            initial :: String -> StepResult
+            initial templ =
+              StepResult
+                { dayNr = 0,
+                  pairCounts = countKeys mempty . pairs $ templ,
+                  charCounts = countKeys mempty . map (,1) $ templ
+                }
+              where
+                pairs :: [a] -> [((a, a), Int)]
+                pairs str = case str of
+                  (a : b : rest) -> ((a, b), 1) : pairs (b : rest)
+                  _ -> []
+            countKeys :: Ord k => Map k Int -> [(k, Int)] -> Map k Int
+            countKeys m str =
+              case str of
+                [] -> m
+                ((key, amount) : tl) ->
+                  countKeys (Map.insert key amount' m) tl
                   where
-                    pairs :: [a] -> [((a, a),Int)]
-                    pairs str = case str of
-                      (a:b:rest) -> ((a,b),1) : pairs (b:rest)
-                      _ -> []
-                countKeys :: Ord k => Map k Int -> [(k,Int)] -> Map k Int
-                countKeys m str =
-                  case str of
-                    [] -> m
-                    ((key,amount):tl) ->
-                        countKeys (Map.insert key amount' m) tl
-                        where amount' = case Map.lookup key m of
-                                Nothing -> amount
-                                Just n -> n+amount
-                go :: Int -> StepResult -> StepResult
-                go n m
-                  | n == 0 = m
-                  | otherwise = go (n-1) (doStep m)
-                doStep :: StepResult -> StepResult
-                doStep sr = StepResult {
-                    dayNr=1+dayNr sr,
-                    pairCounts= countKeys mempty . concatMap newPairs . Map.toList $ pairCounts sr,
-                    charCounts= countKeys
-                                   (charCounts sr)
-                                   . concatMap newChars . Map.toList $ pairCounts sr
-                    }
-                    where newPairs :: ((Char, Char), Int) -> [((Char, Char), Int)]
-                          newPairs ((a,b),amount) = case Map.lookup (a, b) ruleMap of
-                            Nothing -> [((a,b),amount)]
-                            Just c -> [((a,c),amount),((c,b),amount)]
-                          newChars :: ((Char,Char), Int) -> [(Char, Int)]
-                          newChars (key,amount) = case Map.lookup key ruleMap of
-                            Nothing -> []
-                            Just c -> [(c,amount)]
+                    amount' = case Map.lookup key m of
+                      Nothing -> amount
+                      Just n -> n + amount
+            go :: Int -> StepResult -> StepResult
+            go n m
+              | n == 0 = m
+              | otherwise = go (n -1) (doStep m)
+            doStep :: StepResult -> StepResult
+            doStep sr =
+              StepResult
+                { dayNr = 1 + dayNr sr,
+                  pairCounts = countKeys mempty . concatMap newPairs . Map.toList $ pairCounts sr,
+                  charCounts =
+                    countKeys
+                      (charCounts sr)
+                      . concatMap newChars
+                      . Map.toList
+                      $ pairCounts sr
+                }
+              where
+                newPairs :: ((Char, Char), Int) -> [((Char, Char), Int)]
+                newPairs ((a, b), amount) = case Map.lookup (a, b) ruleMap of
+                  Nothing -> [((a, b), amount)]
+                  Just c -> [((a, c), amount), ((c, b), amount)]
+                newChars :: ((Char, Char), Int) -> [(Char, Int)]
+                newChars (key, amount) = case Map.lookup key ruleMap of
+                  Nothing -> []
+                  Just c -> [(c, amount)]
 
-                showIt :: StepResult -> String
-                showIt sr = unlines $
-                  ("After day "<>show (dayNr sr)<>":")
-                  :
-                  [ show a<>" - "<>show b<>" = "<>show (a-b)]
-                  where a = maximum . Map.elems . charCounts $ sr
-                        b = minimum . Map.elems . charCounts $ sr
+            showIt :: StepResult -> String
+            showIt sr =
+              unlines $
+                ("After day " <> show (dayNr sr) <> ":") :
+                [show a <> " - " <> show b <> " = " <> show (a - b)]
+              where
+                a = maximum . Map.elems . charCounts $ sr
+                b = minimum . Map.elems . charCounts $ sr
 
 type Edge = (String, String)
 
@@ -351,30 +437,30 @@ puzzle13 = (fun, "puzzle_13.txt")
                   _ -> error $ "No valid row: `" <> row <> "`"
                 (x, y) -> Left (read x, read . tail $ y)
         calculate :: Part -> [Either (Int, Int) Fold] -> [String]
-        calculate part  xs = case part of
-          Part1 -> dotCount . foldedMap' (head . rights $ xs). lefts $ xs
+        calculate part xs = case part of
+          Part1 -> dotCount . foldedMap' (head . rights $ xs) . lefts $ xs
           Part2 -> drawMap . foldAll (rights xs) . lefts $ xs
 
-        foldAll :: [Fold] -> [(Int,Int)] -> [(Int,Int)]
+        foldAll :: [Fold] -> [(Int, Int)] -> [(Int, Int)]
         foldAll folds xs = foldl foldedMap xs folds
-        foldedMap :: [(Int,Int)] -> Fold -> [(Int,Int)]
+        foldedMap :: [(Int, Int)] -> Fold -> [(Int, Int)]
         foldedMap xs fold = nub . map doFold $ xs
           where
-            doFold :: (Int,Int) -> (Int,Int)
-            doFold (a,b) = case fold of
-              Horizontal n -> (a,foo n b)
-              Vertical n -> (foo n a,b)
-            foo n x = if n > x then x else x - 2*(x - n)
-        foldedMap' :: Fold -> [(Int,Int)] -> [(Int,Int)]
+            doFold :: (Int, Int) -> (Int, Int)
+            doFold (a, b) = case fold of
+              Horizontal n -> (a, foo n b)
+              Vertical n -> (foo n a, b)
+            foo n x = if n > x then x else x - 2 * (x - n)
+        foldedMap' :: Fold -> [(Int, Int)] -> [(Int, Int)]
         foldedMap' f xs = foldedMap xs f
-        dotCount, drawMap :: [(Int,Int)] -> [String]
-        dotCount dots = ["There are "<>(show . length) dots<>" dots visible."]
-        drawMap dots = map drawRow [(minimum . map snd) dots..(maximum . map snd) dots]
+        dotCount, drawMap :: [(Int, Int)] -> [String]
+        dotCount dots = ["There are " <> (show . length) dots <> " dots visible."]
+        drawMap dots = map drawRow [(minimum . map snd) dots .. (maximum . map snd) dots]
           where
-            drawRow rowNr = map drawPoint [(minimum . map fst) dots..(maximum . map fst) dots]
+            drawRow rowNr = map drawPoint [(minimum . map fst) dots .. (maximum . map fst) dots]
               where
                 drawPoint colNr =
-                  if (colNr,rowNr) `elem` dots
+                  if (colNr, rowNr) `elem` dots
                     then '#'
                     else '.'
 
