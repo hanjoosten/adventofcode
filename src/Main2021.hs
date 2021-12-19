@@ -14,7 +14,8 @@ module Main2021
     puzzle12,
     puzzle13,
     puzzle14,
-    puzzle15
+    puzzle15,
+    puzzle16
   )
 where
 
@@ -28,14 +29,167 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Debug.Trace
 import System.FilePath ((</>))
-
 data Part = Part1 | Part2 -- Om onderscheid te maken in de delen van de dagpuzzel.
   deriving (Eq)
 
 getPuzzle :: ([String] -> String, FilePath)
-getPuzzle = from puzzle15
+getPuzzle = from puzzle16
   where
     from (a, b) = (a, show (2021 :: Int) </> b)
+
+data Packet = Packet
+  { header :: PacketHeader
+  , payLoad :: PayLoad
+  , pRest :: Bits
+  } deriving Show
+data PayLoad =
+   Literal Int
+ | Operator
+     { packets :: [Packet]
+     }
+  deriving Show
+newtype Bits = Bits String
+instance Show Bits where
+  show (Bits b) = "Bits "<>b<>" (length = "<>show (length b)<>")"
+data Mode = 
+       LiteralPackage
+     | NumberOfPackets Int
+     | NumberOfBitsOfSubpackets Int
+     deriving Show
+data PacketHeader = PacketHeader
+  { version :: Int,
+    typeId :: Int,
+    modus :: Mode
+  } deriving Show
+puzzle16 :: ([String] -> String, FilePath)
+puzzle16 = (fun, "puzzle_16.txt")
+  where
+    toBits :: String -> Bits
+    toBits = Bits . concatMap char2Bits
+      where char2Bits :: Char -> String
+            char2Bits c = case c of
+              '0' -> "0000"
+              '1' -> "0001"
+              '2' -> "0010"
+              '3' -> "0011"
+              '4' -> "0100"
+              '5' -> "0101"
+              '6' -> "0110"
+              '7' -> "0111"
+              '8' -> "1000"
+              '9' -> "1001"
+              'A' -> "1010"
+              'B' -> "1011"
+              'C' -> "1100"
+              'D' -> "1101"
+              'E' -> "1110"
+              'F' -> "1111"
+              _ -> error $ "No bits for "<>[c]
+    bitstringOf :: Bits -> String
+    bitstringOf (Bits bits) = bits
+    bitsToInt :: Bits -> Int
+    bitsToInt (Bits bits) = case reverse bits of -- Not very efficient, but OK for tiny strings.
+      [] -> error "No Bits!"
+      [_] -> read bits
+      (h:tl) -> read [h] + 2 * bitsToInt (Bits $ reverse tl)
+    fun :: [String] -> String
+    fun rows = ("\n\n" <>) . intercalate "\n" . calculate $ input
+      where
+        input :: Packet
+        input = readPacket . toBits . head $ rows
+        calculate :: Packet -> [String]
+        calculate p = lines . show . expressionValue Part2 $ p
+    expressionValue part = 
+      case part of
+        Part1 -> sumOfVersions
+        Part2 -> calculationPart2 
+    calculationPart2 :: Packet -> Int
+    calculationPart2 p = 
+        case typeId . header $ p of
+          0 -> sum subexprs
+          1 -> product subexprs
+          2 -> minimum subexprs
+          3 -> maximum subexprs
+          4 -> literal p
+          5 -> if first > second then 1 else 0
+          6 -> if first < second then 1 else 0
+          7 -> if first == second then 1 else 0
+          err -> error $ "Invalid typeId: "<>show err  
+      where literal lit = case payLoad lit of
+              Literal n -> n
+              Operator _ -> error "This is not a literal package."
+            subexprs = map calculationPart2 . packets . payLoad $ p
+            first:second:_ = subexprs
+    sumOfVersions :: Packet -> Int
+    sumOfVersions p =
+        (version . header $ p)
+      + case payLoad p of
+          Literal _ -> 0
+          Operator{packets = ps} -> sum . map sumOfVersions $ ps
+    readPacket :: Bits -> Packet
+    readPacket bits = 
+       Packet { header = packetHeader
+              , payLoad = thePayload
+              , pRest = pRest'
+              }
+      where (packetHeader,bodyBits) = readHeader bits
+            readHeader :: Bits -> (PacketHeader,Bits)
+            readHeader bs = (PacketHeader
+                                    {version = bitsToInt version'
+                                    ,typeId = bitsToInt typeId'
+                                    ,modus = modus'
+                                    }, case modus' of
+                                         LiteralPackage -> afterTypeId
+                                         NumberOfPackets _ -> afterModusBits
+                                         NumberOfBitsOfSubpackets _ -> afterModusBits)
+              where (version',afterVersion) = both Bits . splitAt 3 . bitstringOf $ bs
+                    (typeId',afterTypeId) = both Bits . splitAt 3 . bitstringOf $ afterVersion
+                    Bits (modusBit:afterModusBit) = afterTypeId
+                    (nextModusBits,afterModusBits) = both Bits . splitAt (if modusBit == '0' then 15 else 11) $ afterModusBit
+                    modus'  
+                      | bitsToInt typeId' == 4 = LiteralPackage
+                      | modusBit == '0' = NumberOfBitsOfSubpackets (bitsToInt nextModusBits)
+                      | otherwise = NumberOfPackets (bitsToInt nextModusBits)
+            (thePayload,pRest') = readBody
+
+            readBody :: (PayLoad, Bits)
+            readBody = case modus packetHeader of
+                LiteralPackage -> readLiteral bodyBits
+                NumberOfPackets n -> (Operator ps, remainingBits)
+                  where (ps,remainingBits) = readNpackets n bodyBits
+                NumberOfBitsOfSubpackets n -> (Operator ps, remainingBits)
+                  where (ps,remainingBits) = (consumeNbits (readPacket bitsToConsume),leftOvers)
+                         where (bitsToConsume,leftOvers) = both Bits . splitAt n . bitstringOf $ bodyBits
+              where readNpackets :: Int -> Bits -> ([Packet],Bits)
+                    readNpackets 0 xs = ([],xs)
+                    readNpackets i leftovers = (p:ps,r)
+                      where
+                        (ps,r) = readNpackets (i-1) (pRest p)
+                        p = readPacket leftovers
+                    consumeNbits :: Packet -> [Packet]
+                    consumeNbits p = p : doRest p
+                        
+                    doRest p
+                      | length (bitstringOf . pRest $ p) < 6 = []
+                      | otherwise = consumeNbits . readPacket . pRest $ p
+
+            readLiteral :: Bits -> (PayLoad,Bits)
+            readLiteral bs = ( Literal $ bitsToInt a
+                             , b)
+              where
+                (a,b) = both Bits . readLiteral' "" . bitstringOf $ bs
+                readLiteral' :: String -> String -> (String, String)
+                readLiteral' ws str = case head as of
+                      '1' -> readLiteral' (ws <>tail as) as'
+                      '0' -> (ws <>tail as,as')
+                      _ -> error $ "Error at readLiteral' "<>ws<>" "<>str
+                  where (as, as') = splitAt 5 str
+
+-- | Apply a single function to both components of a pair.
+--
+-- > both succ (1,2) == (2,3)
+both :: (a -> b) -> (a, a) -> (b, b)
+both f (x,y) = (f x, f y)
 
 puzzle15 :: ([String] -> String, FilePath)
 puzzle15 = (fun, "puzzle_15.txt")
@@ -48,8 +202,7 @@ puzzle15 = (fun, "puzzle_15.txt")
           Part1 -> Map.fromList . concatMap parseRow . zip [0..] $ rows
           Part2 -> times5 (input Part1)
           where times5 :: Map (Int, Int) Int -> Map (Int, Int) Int
-                times5 baseTile = trace (unlines. showIt $ baseTile) . (\x-> trace (unlines $ showIt x) x) $
-                   Map.unions [ tile a b | a <- [0..4],b <- [0..4]]
+                times5 baseTile = Map.unions [ tile a b | a <- [0..4],b <- [0..4]]
                   where
                     tile :: Int -> Int -> Map (Int, Int) Int
                     tile a b = mkNewMap
@@ -66,9 +219,8 @@ puzzle15 = (fun, "puzzle_15.txt")
                  where foo ::(Int,Int) -> ((Int,Int),Int)
                        foo (col,val) = ((col,rowNr),val)
         calculate :: Map (Int, Int) Int -> [String]
-        calculate m = trace (show (fst . fromJust . Map.lookupMax $ m)) .
-                      trace (show (fst . fromJust . Map.lookupMin $ m)) . 
-              lines . show $ dijkstra step (fst . fromJust . Map.lookupMax $ m) (0, fst . fromJust . Map.lookupMin $ m)
+        calculate m = lines . show $ 
+             dijkstra step (fst . fromJust . Map.lookupMax $ m) (0, fst . fromJust . Map.lookupMin $ m)
            where step :: (Int,(Int,Int)) -> [(Int,(Int,Int))]
                  step (cost,node) =
                       [ (cost + edgeCost, child)
@@ -83,12 +235,6 @@ puzzle15 = (fun, "puzzle_15.txt")
                           Nothing -> Nothing
                           Just n -> Just (n,dest)
                           where dest = (row + a,col+b)
-        showIt :: Map (Int,Int) Int -> [String]
-        showIt m = map showRow [minRow..maxRow]
-            where showRow :: Int -> String
-                  showRow i = concatMap (\col -> show (fromJust $ Map.lookup (col,i) m))  [minCol..maxCol]
-                  (minCol,minRow) = fst . fromJust . Map.lookupMin $ m
-                  (maxCol,maxRow) = fst . fromJust . Map.lookupMax $ m
 dijkstra
     :: (Ord cost , Ord node)
     => ((cost , node) -> [(cost , node)]) -- ^ Where we can go from a node and the cost of that
